@@ -9,15 +9,21 @@ Ollama is the default selected provider. The app starts with:
 - port `11434`
 - model `qwen3.5:0.8b`
 
-Users can edit the host, port, and model in Settings > Agents and press the connection test button. A successful test stores the provider as configured.
+Users can edit the host, port, and model in Providers > Ollama and press the connection test button. A successful test stores the provider as configured.
 
-The settings screen can also load server models from Ollama `/api/tags`. If the currently stored model is not present on the server, Kvace selects the first returned model and persists that choice. Users can still type a model manually for advanced/local experimentation.
+The Providers screen can also load server models from Ollama `/api/tags`. If the currently stored model is not present on the server, Kvace selects the first returned model and persists that choice. Users can still type a model manually for advanced/local experimentation.
 
 ## Real Execution
 
-Chat execution now uses Koog for minimal single-turn requests. The UI and presentation layers do not call Koog directly; chat uses `MessageSender`, `SendMessageUseCase`, and `AgentRuntime`. Koog agent iteration limits are intentionally above one step because even simple agent runs may need more than one internal graph transition.
+Workspace execution now uses Koog for minimal single-turn requests. The UI and presentation layers do not call Koog directly; chat uses `MessageSender`, `SendMessageUseCase`, and `AgentRuntime`. Koog agent iteration limits are intentionally above one step because even simple agent runs may need more than one internal graph transition.
 
-Ollama uses Koog's built-in Ollama client. On-device execution uses a custom Koog `LLMClient` with provider id `on-device`, so the agent boundary stays the same even though the model runs through platform APIs instead of an HTTP endpoint. The on-device client supports single-turn text generation only. It does not support tools, embeddings, moderation, or true token streaming.
+`SendMessageUseCase` locks the selected provider and model at the start of a request. Previous user/assistant messages from the selected conversation are passed as request context, and assistant-side messages store the model label and generation timestamp.
+
+Ollama uses Koog's built-in Ollama client on Android, iOS, and Desktop JVM. Web/Wasm uses a direct Ktor request to
+Ollama `/api/chat` and reads streaming NDJSON, because Koog execution is not available in the browser target yet. On-device
+execution uses a custom Koog `LLMClient` with provider id `on-device`, so the agent boundary stays the same even though
+the model runs through platform APIs instead of an HTTP endpoint. The on-device client supports single-turn text
+generation only. It does not support tools, embeddings, moderation, or true token streaming.
 
 ## On-device
 
@@ -31,7 +37,7 @@ Android support uses ML Kit Prompt API. The app min SDK remains `24`, but runtim
 
 iOS support is supplied by the Swift host. `PromptApiIos` implements the shared Kotlin `OnDevicePromptApi` with `FoundationModels.LanguageModelSession`, and `iOSApp` registers it with `AppleOnDevicePromptApiRegistry` only under `#available(iOS 26.0, macCatalyst 26.0, *)`. The bridge is ready for Catalyst-capable hosts, but this project does not enable Mac Catalyst yet.
 
-Desktop JVM and Web/Wasm keep the provider visible but unavailable.
+Desktop JVM and Web/Wasm keep the on-device provider visible but unavailable.
 
 ## Hosted Providers
 
@@ -46,4 +52,5 @@ Credential storage requirements:
 
 ## Browser Caveat
 
-Local Ollama from Web/Wasm may require Ollama CORS configuration. A passing Desktop or Android connection test does not guarantee browser access.
+Local Ollama from Web/Wasm may require Ollama CORS configuration. A passing Desktop or Android connection test does not
+guarantee browser execution access, because browser fetches enforce CORS even when native targets can connect.

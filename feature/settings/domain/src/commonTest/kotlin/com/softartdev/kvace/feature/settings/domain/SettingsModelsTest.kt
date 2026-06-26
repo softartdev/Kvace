@@ -4,6 +4,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 
 class SettingsModelsTest {
+
     @Test
     fun appSettingsDefaultsToAppearanceSection() {
         assertEquals(SettingsSection.Appearance, AppSettings().selectedSection)
@@ -12,7 +13,12 @@ class SettingsModelsTest {
     @Test
     fun settingsSectionOrderIsStable() {
         assertEquals(
-            listOf(SettingsSection.Appearance, SettingsSection.Agents, SettingsSection.About),
+            listOf(
+                SettingsSection.Appearance,
+                SettingsSection.Harness,
+                SettingsSection.Libraries,
+                SettingsSection.About,
+            ),
             SettingsSection.entries,
         )
     }

@@ -1,6 +1,5 @@
 package com.softartdev.kvace.feature.agent.presentation
 
-import co.touchlab.kermit.Logger
 import com.softartdev.kvace.core.domain.util.CoroutineDispatchers
 import com.softartdev.kvace.feature.agent.domain.AgentConfigurationRepository
 import com.softartdev.kvace.feature.agent.domain.AgentProviderConfig
@@ -30,9 +29,7 @@ class AgentConfigViewModelTest {
     }
 
     @AfterTest
-    fun tearDown() {
-        Dispatchers.resetMain()
-    }
+    fun tearDown() = Dispatchers.resetMain()
 
     @Test
     fun observesProvidersAndSelectedProvider() = runTest(dispatcher) {
@@ -40,9 +37,7 @@ class AgentConfigViewModelTest {
         val viewModel = AgentConfigViewModel(
             repository = repository,
             dispatchers = TestCoroutineDispatchers(dispatcher),
-            logger = Logger.withTag("AgentConfigViewModelTest"),
         )
-
         viewModel.observeProviders()
 
         assertEquals(repository.providers.value, viewModel.uiState.value.providers)
@@ -55,12 +50,26 @@ class AgentConfigViewModelTest {
         val viewModel = AgentConfigViewModel(
             repository = repository,
             dispatchers = TestCoroutineDispatchers(dispatcher),
-            logger = Logger.withTag("AgentConfigViewModelTest"),
         )
-
-        viewModel.onAction(AgentConfigAction.SelectProvider(AgentProviderId.OnDevice))
+        viewModel.selectProvider(AgentProviderId.OnDevice)
 
         assertEquals(AgentProviderId.OnDevice, repository.selectedProvider.value?.id)
+    }
+
+    @Test
+    fun providerModelChangedUpdatesRepository() = runTest(dispatcher) {
+        val repository = FakeAgentConfigurationRepository()
+        val viewModel = AgentConfigViewModel(
+            repository = repository,
+            dispatchers = TestCoroutineDispatchers(dispatcher),
+        )
+
+        viewModel.onAction(AgentConfigAction.ProviderModelChanged(AgentProviderId.OpenAI, "gpt-4.1-mini"))
+
+        assertEquals(
+            "gpt-4.1-mini",
+            repository.providers.value.first { it.id == AgentProviderId.OpenAI }.modelName,
+        )
     }
 }
 
@@ -99,7 +108,7 @@ private class FakeAgentConfigurationRepository : AgentConfigurationRepository {
 }
 
 private class TestCoroutineDispatchers(
-    private val dispatcher: CoroutineDispatcher,
+    dispatcher: CoroutineDispatcher,
 ) : CoroutineDispatchers {
     override val default: CoroutineDispatcher = dispatcher
     override val main: CoroutineDispatcher = dispatcher

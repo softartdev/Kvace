@@ -1,6 +1,5 @@
 package com.softartdev.kvace.feature.agent.presentation
 
-import co.touchlab.kermit.Logger
 import com.softartdev.kvace.core.domain.util.CoroutineDispatchers
 import com.softartdev.kvace.feature.agent.domain.AgentConfigurationRepository
 import com.softartdev.kvace.feature.agent.domain.AgentConnectionTestResult
@@ -26,6 +25,7 @@ import kotlin.test.assertTrue
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class OllamaEndpointSettingsViewModelTest {
+
     private lateinit var dispatcher: TestDispatcher
 
     @BeforeTest
@@ -158,7 +158,6 @@ class OllamaEndpointSettingsViewModelTest {
         connectionTester = connectionTester,
         modelCatalog = modelCatalog,
         dispatchers = OllamaTestDispatchers(dispatcher),
-        logger = Logger.withTag("OllamaEndpointSettingsViewModelTest"),
     )
 }
 
@@ -200,7 +199,7 @@ private class FakeAgentModelCatalog(
 }
 
 private class OllamaTestDispatchers(
-    private val dispatcher: CoroutineDispatcher,
+    dispatcher: CoroutineDispatcher,
 ) : CoroutineDispatchers {
     override val default: CoroutineDispatcher = dispatcher
     override val main: CoroutineDispatcher = dispatcher

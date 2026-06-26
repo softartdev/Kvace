@@ -7,7 +7,6 @@ import com.softartdev.kvace.feature.agent.domain.AgentProviderConfig
 import com.softartdev.kvace.feature.agent.domain.AgentProviderId
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 
 class SettingsAgentConfigurationRepository(
     private val ollamaEndpointProvider: OllamaEndpointProvider,
@@ -17,52 +16,49 @@ class SettingsAgentConfigurationRepository(
     private val settings: PersistentSettings = settingsFactory.create(SETTINGS_NAME)
     private val initialProviders = createInitialProviders()
 
-    private val _providers = MutableStateFlow(initialProviders)
-    override val providers: StateFlow<List<AgentProviderConfig>> = _providers.asStateFlow()
+    override val providers: StateFlow<List<AgentProviderConfig>>
+        field = MutableStateFlow(initialProviders)
 
-    private val _selectedProvider = MutableStateFlow(initialSelectedProvider(initialProviders))
-    override val selectedProvider: StateFlow<AgentProviderConfig?> = _selectedProvider.asStateFlow()
+    override val selectedProvider: StateFlow<AgentProviderConfig?>
+        field = MutableStateFlow(initialSelectedProvider(initialProviders))
 
     override suspend fun selectProvider(id: AgentProviderId) {
-        val provider = _providers.value.firstOrNull { it.id == id } ?: return
+        val provider: AgentProviderConfig = providers.value.firstOrNull { it.id == id } ?: return
         settings.putString(KEY_SELECTED_PROVIDER_ID, id.name)
-        _selectedProvider.value = provider
+        selectedProvider.value = provider
     }
 
     override suspend fun updateProvider(config: AgentProviderConfig) {
-        _providers.value = _providers.value.map { provider ->
+        saveProvider(config)
+        providers.value = providers.value.map { provider ->
             if (provider.id == config.id) config else provider
         }
-        if (_selectedProvider.value.id == config.id) {
-            _selectedProvider.value = config
+        if (selectedProvider.value.id == config.id) {
+            selectedProvider.value = config
         }
-        saveProvider(config)
     }
 
-    private fun createInitialProviders(): List<AgentProviderConfig> {
-        val defaultOllamaEndpoint = ollamaEndpointProvider.defaultEndpoint()
-        return listOf(
-            AgentProviderConfig(
-                id = AgentProviderId.Ollama,
-                modelName = settings.getStringOrNull(KEY_OLLAMA_MODEL) ?: DEFAULT_OLLAMA_MODEL,
-                endpoint = settings.getStringOrNull(KEY_OLLAMA_ENDPOINT) ?: defaultOllamaEndpoint,
-                isConfigured = settings.getBoolean(KEY_OLLAMA_CONFIGURED, defaultValue = true),
-            ),
-            AgentProviderConfig(
-                id = AgentProviderId.OnDevice,
-                modelName = settings.getStringOrNull(KEY_ON_DEVICE_MODEL) ?: onDeviceModelProvider.modelName,
-                isConfigured = onDeviceModelProvider.isAvailable,
-            ),
-            AgentProviderConfig(
-                id = AgentProviderId.OpenAI,
-                modelName = settings.getStringOrNull(KEY_OPENAI_MODEL) ?: DEFAULT_OPENAI_MODEL,
-                isConfigured = settings.getBoolean(KEY_OPENAI_CONFIGURED, defaultValue = false),
-            ),
-        )
-    }
+    private fun createInitialProviders(): List<AgentProviderConfig> = listOf(
+        AgentProviderConfig(
+            id = AgentProviderId.Ollama,
+            modelName = settings.getStringOrNull(KEY_OLLAMA_MODEL) ?: DEFAULT_OLLAMA_MODEL,
+            endpoint = settings.getStringOrNull(KEY_OLLAMA_ENDPOINT) ?: ollamaEndpointProvider.defaultEndpoint(),
+            isConfigured = settings.getBoolean(KEY_OLLAMA_CONFIGURED, defaultValue = true),
+        ),
+        AgentProviderConfig(
+            id = AgentProviderId.OnDevice,
+            modelName = settings.getStringOrNull(KEY_ON_DEVICE_MODEL) ?: onDeviceModelProvider.modelName,
+            isConfigured = onDeviceModelProvider.isAvailable,
+        ),
+        AgentProviderConfig(
+            id = AgentProviderId.OpenAI,
+            modelName = settings.getStringOrNull(KEY_OPENAI_MODEL) ?: DEFAULT_OPENAI_MODEL,
+            isConfigured = settings.getBoolean(KEY_OPENAI_CONFIGURED, defaultValue = false),
+        ),
+    )
 
     private fun initialSelectedProvider(providers: List<AgentProviderConfig>): AgentProviderConfig {
-        val savedProviderId = settings.getStringOrNull(KEY_SELECTED_PROVIDER_ID)
+        val savedProviderId: AgentProviderId = settings.getStringOrNull(KEY_SELECTED_PROVIDER_ID)
             ?.let { runCatching { AgentProviderId.valueOf(it) }.getOrNull() }
             ?: AgentProviderId.Ollama
 
@@ -70,20 +66,18 @@ class SettingsAgentConfigurationRepository(
             ?: providers.first { it.id == AgentProviderId.Ollama }
     }
 
-    private fun saveProvider(config: AgentProviderConfig) {
-        when (config.id) {
-            AgentProviderId.Ollama -> {
-                config.endpoint?.let { settings.putString(KEY_OLLAMA_ENDPOINT, it) }
-                settings.putString(KEY_OLLAMA_MODEL, config.modelName)
-                settings.putBoolean(KEY_OLLAMA_CONFIGURED, config.isConfigured)
-            }
-            AgentProviderId.OpenAI -> {
-                settings.putString(KEY_OPENAI_MODEL, config.modelName)
-                settings.putBoolean(KEY_OPENAI_CONFIGURED, config.isConfigured)
-            }
-            AgentProviderId.OnDevice -> {
-                settings.putString(KEY_ON_DEVICE_MODEL, config.modelName)
-            }
+    private fun saveProvider(config: AgentProviderConfig) = when (config.id) {
+        AgentProviderId.Ollama -> {
+            config.endpoint?.let { settings.putString(KEY_OLLAMA_ENDPOINT, it) }
+            settings.putString(KEY_OLLAMA_MODEL, config.modelName)
+            settings.putBoolean(KEY_OLLAMA_CONFIGURED, config.isConfigured)
+        }
+        AgentProviderId.OpenAI -> {
+            settings.putString(KEY_OPENAI_MODEL, config.modelName)
+            settings.putBoolean(KEY_OPENAI_CONFIGURED, config.isConfigured)
+        }
+        AgentProviderId.OnDevice -> {
+            settings.putString(KEY_ON_DEVICE_MODEL, config.modelName)
         }
     }
 

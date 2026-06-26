@@ -4,6 +4,8 @@ import com.softartdev.kvace.OnDevicePromptApi
 import com.softartdev.kvace.feature.agent.data.APPLE_ON_DEVICE_MODEL_LABEL
 import com.softartdev.kvace.feature.agent.data.OnDeviceModelException
 import com.softartdev.kvace.feature.agent.data.OnDeviceModelProvider
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 
 object AppleOnDevicePromptApiRegistry {
     var promptApi: OnDevicePromptApi? = null
@@ -20,12 +22,14 @@ internal class AppleOnDeviceModelProvider : OnDeviceModelProvider {
                 "$APPLE_ON_DEVICE_MODEL_LABEL is unavailable on this Apple platform or OS version.",
             )
 
-        val response = runCatching { promptApi.generateContent(prompt) }
-            .getOrElse { error ->
-                throw OnDeviceModelException.GenerationFailed(
-                    error.message ?: "$APPLE_ON_DEVICE_MODEL_LABEL request failed.",
-                )
-            }
+        val response = try {
+            promptApi.generateContent(prompt)
+        } catch (error: Throwable) {
+            currentCoroutineContext().ensureActive()
+            throw OnDeviceModelException.GenerationFailed(
+                error.message ?: "$APPLE_ON_DEVICE_MODEL_LABEL request failed.",
+            )
+        }
 
         return response
             ?.trim()

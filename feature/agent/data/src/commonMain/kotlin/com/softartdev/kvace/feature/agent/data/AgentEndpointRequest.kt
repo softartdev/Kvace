@@ -5,10 +5,7 @@ import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.request.get
 import io.ktor.client.statement.bodyAsText
 
-internal suspend fun fetchAgentEndpointStatus(
-    url: String,
-    timeoutMillis: Long,
-): Int {
+internal suspend fun fetchAgentEndpointStatus(url: String, timeoutMillis: Long): Int {
     val client = createAgentHttpClient(tag = "Ktor/AgentEndpointStatus") {
         installEndpointTimeout(timeoutMillis)
     }
@@ -19,10 +16,7 @@ internal suspend fun fetchAgentEndpointStatus(
     }
 }
 
-internal suspend fun fetchAgentEndpointText(
-    url: String,
-    timeoutMillis: Long,
-): String {
+internal suspend fun fetchAgentEndpointText(url: String, timeoutMillis: Long): String {
     val client = createAgentHttpClient(tag = "Ktor/AgentEndpointText") {
         installEndpointTimeout(timeoutMillis)
     }

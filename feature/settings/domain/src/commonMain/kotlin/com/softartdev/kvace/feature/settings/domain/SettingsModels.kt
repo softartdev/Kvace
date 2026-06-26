@@ -2,7 +2,8 @@ package com.softartdev.kvace.feature.settings.domain
 
 enum class SettingsSection {
     Appearance,
-    Agents,
+    Harness,
+    Libraries,
     About,
 }
 

@@ -24,6 +24,8 @@ class UnavailableOnDeviceModelProvider(
         throw OnDeviceModelException.Unavailable(message)
 }
 
+class DefaultUnavailableOnDeviceModelProvider : OnDeviceModelProvider by UnavailableOnDeviceModelProvider()
+
 const val ANDROID_ON_DEVICE_MODEL_LABEL = "Gemini Nano"
 const val APPLE_ON_DEVICE_MODEL_LABEL = "Apple Foundation Models"
 const val DEFAULT_ON_DEVICE_MODEL_LABEL = "On-device model"

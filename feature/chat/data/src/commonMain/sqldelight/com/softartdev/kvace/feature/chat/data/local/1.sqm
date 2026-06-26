@@ -1,0 +1,2 @@
+ALTER TABLE chat_messages ADD COLUMN generated_by_model_name TEXT;
+ALTER TABLE chat_messages ADD COLUMN generated_at_millis INTEGER;

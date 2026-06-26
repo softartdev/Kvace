@@ -6,6 +6,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNull
 
 class AgentModelsTest {
+
     @Test
     fun providerDisplayNamesStayStable() {
         assertEquals("OpenAI", AgentProviderId.OpenAI.displayName)

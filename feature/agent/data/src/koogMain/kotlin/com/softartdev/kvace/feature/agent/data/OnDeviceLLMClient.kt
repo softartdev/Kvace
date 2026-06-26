@@ -25,6 +25,7 @@ internal fun onDeviceLLModel(modelName: String): LLModel = LLModel(
 internal class OnDeviceLLMClient(
     private val onDeviceModelProvider: OnDeviceModelProvider,
 ) : LLMClient() {
+
     override suspend fun execute(
         prompt: Prompt,
         model: LLModel,
@@ -36,7 +37,6 @@ internal class OnDeviceLLMClient(
         if (tools.isNotEmpty()) {
             throw UnsupportedOperationException("On-device AI does not support tool execution.")
         }
-
         val generatedText = onDeviceModelProvider.generateContent(prompt.toPlainTextPrompt())
         return Message.Assistant(
             content = generatedText,
@@ -62,12 +62,10 @@ internal class OnDeviceLLMClient(
     override suspend fun moderate(prompt: Prompt, model: LLModel): ModerationResult =
         throw UnsupportedOperationException("On-device AI does not support moderation.")
 
-    override suspend fun models(): List<LLModel> =
-        if (onDeviceModelProvider.isAvailable) {
-            listOf(onDeviceLLModel(onDeviceModelProvider.modelName))
-        } else {
-            emptyList()
-        }
+    override suspend fun models(): List<LLModel> = when (onDeviceModelProvider.isAvailable) {
+        true -> listOf(onDeviceLLModel(onDeviceModelProvider.modelName))
+        else -> emptyList()
+    }
 
     override fun llmProvider(): LLMProvider = ON_DEVICE_LLM_PROVIDER
 
@@ -75,20 +73,11 @@ internal class OnDeviceLLMClient(
 
     override fun close() = Unit
 
-    private fun Prompt.toPlainTextPrompt(): String =
-        messages
-            .mapNotNull { message ->
-                val text = message.textContent().trim()
-                if (text.isBlank()) {
-                    null
-                } else {
-                    "${message.role.name}: $text"
-                }
-            }
-            .joinToString(separator = "\n\n")
-            .ifBlank {
-                throw OnDeviceModelException.GenerationFailed("On-device AI prompt is empty.")
-            }
+    private fun Prompt.toPlainTextPrompt(): String = messages.mapNotNull { message ->
+        val text = message.textContent().trim()
+        if (text.isBlank()) null else "${message.role.name}: $text"
+    }.joinToString(separator = "\n\n")
+        .ifBlank { throw OnDeviceModelException.GenerationFailed("On-device AI prompt is empty.") }
 }
 
 private const val ON_DEVICE_CONTEXT_LENGTH = 4096L

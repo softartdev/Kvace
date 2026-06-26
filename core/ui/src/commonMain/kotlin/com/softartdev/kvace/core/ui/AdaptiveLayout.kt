@@ -10,16 +10,6 @@ import androidx.compose.material3.adaptive.layout.ThreePaneScaffoldScope
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.dp
-
-enum class NavigationLayoutType {
-    BottomBar,
-    NavigationRail,
-}
-
-fun navigationLayoutTypeForWidth(width: Dp): NavigationLayoutType =
-    if (width < 600.dp) NavigationLayoutType.BottomBar else NavigationLayoutType.NavigationRail
 
 @OptIn(ExperimentalMaterial3AdaptiveApi::class, ExperimentalMaterial3Api::class)
 @Composable

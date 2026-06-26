@@ -10,6 +10,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 
 class OnDeviceLLMClientTest {
+
     @Test
     fun executesPromptWithOnDeviceProvider() = runTest {
         val provider = FakeClientOnDeviceModelProvider(response = "On-device response")
@@ -44,10 +45,7 @@ class OnDeviceLLMClientTest {
         assertEquals(emptyList(), unavailableClient.models())
     }
 
-    private fun testPrompt() = prompt(
-        id = "on-device-test",
-        params = LLMParams(),
-    ) {
+    private fun testPrompt() = prompt(id = "on-device-test", params = LLMParams()) {
         system("You are testing Kvace.")
         user("Hello")
     }

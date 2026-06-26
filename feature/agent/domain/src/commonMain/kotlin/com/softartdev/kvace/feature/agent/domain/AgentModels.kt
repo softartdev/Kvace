@@ -9,6 +9,8 @@ enum class AgentProviderId(val displayName: String) {
     OnDevice("On-device"),
 }
 
+const val DEFAULT_HARNESS_SYSTEM_PROMPT = "You are Kvace, a concise AI assistant inside a multiplatform agent app."
+
 data class AgentProviderConfig(
     val id: AgentProviderId,
     val displayName: String = id.displayName,
@@ -20,6 +22,22 @@ data class AgentProviderConfig(
 data class AgentRequest(
     val prompt: String,
     val providerId: AgentProviderId? = null,
+    val context: List<AgentConversationMessage> = emptyList(),
+)
+
+enum class AgentConversationRole {
+    User,
+    Assistant,
+}
+
+data class AgentConversationMessage(
+    val role: AgentConversationRole,
+    val text: String,
+)
+
+data class HarnessConfig(
+    val enabled: Boolean = true,
+    val systemPrompt: String = DEFAULT_HARNESS_SYSTEM_PROMPT,
 )
 
 sealed interface AgentExecutionEvent {
@@ -64,4 +82,10 @@ interface AgentConfigurationRepository {
     val selectedProvider: StateFlow<AgentProviderConfig?>
     suspend fun selectProvider(id: AgentProviderId)
     suspend fun updateProvider(config: AgentProviderConfig)
+}
+
+interface HarnessConfigurationRepository {
+    val config: StateFlow<HarnessConfig>
+    suspend fun updateConfig(config: HarnessConfig)
+    suspend fun resetConfig()
 }

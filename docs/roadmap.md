@@ -1,28 +1,30 @@
 # Kvace Roadmap
 
-This roadmap starts from the current KMP + Compose architecture after enabling persisted provider settings and minimal real Ollama execution.
+This roadmap starts from the current KMP + Compose architecture after enabling persisted provider settings, persisted chat history, and minimal real Ollama execution.
 
 ## Current Baseline
 
 - Modular KMP structure with `app`, `core`, and `feature` modules.
-- Shared Compose root with adaptive navigation for Chat, Agents, and Settings.
+- Shared Compose root with adaptive navigation for Workspace, Providers, and Settings.
 - Koin-based composition root with platform modules for Android, iOS, Desktop JVM, and Wasm.
-- Chat feature with in-memory conversation state and single-turn Ollama execution, plus on-device execution where platform APIs are available.
-- Agent feature with provider domain contracts, persisted provider configuration, and Koog isolated in data.
-- Settings feature with MaterialThemePrefs theme switching and integrated Ollama endpoint editing.
+- Workspace feature with SQLDelight-backed conversation history, adaptive master-detail layout, stop generation, message actions, and single-turn Ollama execution, plus on-device execution where platform APIs are available.
+- Providers feature with adaptive provider configuration, provider domain contracts, persisted provider/model configuration, and Koog isolated in data.
+- Settings feature with MaterialThemePrefs theme switching, Harness prompt editing, and About information.
 - Ollama host/port connection testing and server model loading through data-layer clients.
 - On-device provider selection with Android ML Kit Prompt API and an iOS Swift bridge for Apple Foundation Models.
 - Android emulator localhost handling through emulator detection, defaulting Ollama to `10.0.2.2:11434`.
 - Multiplatform Settings persistence for selected provider, provider endpoint/model fields, app settings selection, and Wasm browser storage.
-- Domain and presentation layer tests for the initial chat, agent, and settings behavior.
+- Harness prompt persistence through Multiplatform Settings.
+- Chat history persists across restarts on Android, iOS, and Desktop JVM. Web/Wasm chat history is session-only.
+- Domain, data, and presentation tests for chat, agent, and settings behavior.
 
 ## Phase 1: Stabilize The Foundation
 
 - Keep feature modules buildable across Android, iOS, Desktop JVM, and Wasm.
 - Add focused tests for `AgentConfigViewModel` provider selection and `OllamaEndpointSettingsViewModel` endpoint/model transitions.
 - Add fake `AgentConnectionTester` and `AgentModelCatalog` coverage for success, failure, invalid host, invalid port, and model selection paths.
-- Clean up preview coverage for Settings, Agents, and Chat states.
-- Keep persistence backed by platform-specific Multiplatform Settings factories, including browser `StorageSettings` for Wasm.
+- Clean up preview coverage for Settings, Providers, and Workspace states.
+- Keep preference persistence backed by platform-specific Multiplatform Settings factories, including browser `StorageSettings` for Wasm.
 
 Validation gate:
 
@@ -42,7 +44,7 @@ Validation gate:
 
 ## Phase 2: Provider Configuration Depth
 
-- Add provider editing for model names beyond the current defaults.
+- Add provider editing for model names beyond the current defaults. Basic model editing and Ollama model loading are implemented.
 - Add provider-specific validation for model names and endpoints.
 - Add secure API-key storage design for OpenAI and other hosted providers.
 - Keep secrets out of common UI and avoid browser-side secret storage for real hosted-provider execution.
@@ -58,11 +60,11 @@ Validation gate:
 
 ## Phase 4: Chat Workspace
 
-- Persist conversations and messages.
-- Add conversation list, rename/delete actions, and empty/error states.
+- Persist conversations and messages. Partially implemented with local SQLDelight chat history.
+- Add conversation list, rename/delete actions, and empty/error states. Conversation list, empty states, rename/delete, and first-message auto-title are implemented.
 - Support provider/model selection per conversation.
 - Add markdown/code rendering only after basic persistence and execution paths are reliable.
-- Add cancellation and retry for in-flight agent responses.
+- Add cancellation and retry for in-flight agent responses. Stop generation is implemented; retry is still pending.
 
 ## Phase 5: Platform-Specific Capabilities
 

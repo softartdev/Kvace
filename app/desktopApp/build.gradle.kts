@@ -21,17 +21,14 @@ compose.desktop {
                 iconFile.set(project.file("src/main/resources/icons/kvace.ico"))
             }
             linux {
-                iconFile.set(project.file("src/main/composeResources/drawable/kvace_window_icon.png"))
+                iconFile.set(project.file("../../core/ui/src/commonMain/composeResources/drawable/kvace_window_icon.png"))
             }
         }
     }
 }
 
-compose.resources {
-    packageOfResClass = "kvace.app.desktop.generated.resources"
-}
-
 dependencies {
+    implementation(projects.core.ui)
     implementation(projects.app.shared)
     implementation(compose.desktop.currentOs)
     implementation(libs.compose.components.resources)

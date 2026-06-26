@@ -8,12 +8,15 @@ interface OllamaEndpointProvider {
     fun defaultEndpoint(): String
 }
 
-fun defaultOllamaEndpointProvider(): OllamaEndpointProvider = StaticOllamaEndpointProvider(LOOPBACK_HOST)
+class DefaultOllamaEndpointProvider : OllamaEndpointProvider {
+    override fun defaultEndpoint(): String = ollamaEndpoint(LOOPBACK_HOST)
+}
 
 internal fun ollamaEndpoint(host: String, port: Int = OLLAMA_DEFAULT_PORT): String = "http://$host:$port"
 
 internal class StaticOllamaEndpointProvider(
     private val host: String,
 ) : OllamaEndpointProvider {
+
     override fun defaultEndpoint(): String = ollamaEndpoint(host)
 }

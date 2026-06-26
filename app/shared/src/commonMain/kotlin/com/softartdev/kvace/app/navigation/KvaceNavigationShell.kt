@@ -1,125 +1,150 @@
+@file:OptIn(ExperimentalMaterial3AdaptiveApi::class)
+
 package com.softartdev.kvace.app.navigation
 
-import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Chat
-import androidx.compose.material.icons.filled.Psychology
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.NavigationRail
-import androidx.compose.material3.NavigationRailItem
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.adaptive.ExperimentalMaterial3AdaptiveApi
+import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
+import androidx.navigation.NavDestination.Companion.hasRoute
+import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.dialog
 import androidx.navigation.compose.rememberNavController
-import com.softartdev.kvace.core.ui.NavigationLayoutType
-import com.softartdev.kvace.core.ui.isImeVisible
-import com.softartdev.kvace.core.ui.navigationLayoutTypeForWidth
+import com.softartdev.kvace.app.snackbar.ComposeSnackbarInteractor
+import com.softartdev.kvace.core.presentation.AppRoute
 import com.softartdev.kvace.feature.agent.presentation.AgentConfigViewModel
 import com.softartdev.kvace.feature.agent.presentation.OllamaEndpointSettingsViewModel
 import com.softartdev.kvace.feature.agent.ui.AgentConfigScreen
-import com.softartdev.kvace.feature.agent.ui.OllamaEndpointSettings
 import com.softartdev.kvace.feature.chat.presentation.ChatViewModel
 import com.softartdev.kvace.feature.chat.ui.ChatScreen
+import com.softartdev.kvace.feature.settings.presentation.HarnessSettingsViewModel
 import com.softartdev.kvace.feature.settings.presentation.SettingsViewModel
 import com.softartdev.kvace.feature.settings.ui.SettingsScreen
 import com.softartdev.theme.material3.ThemeDialogContent
-import kvace.app.shared.generated.resources.Res
-import kvace.app.shared.generated.resources.nav_agents
-import kvace.app.shared.generated.resources.nav_chat
-import kvace.app.shared.generated.resources.nav_settings
-import org.jetbrains.compose.resources.stringResource
+import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
+import kotlin.enums.EnumEntries
 
 @Composable
 fun KvaceNavigationShell() {
     val navController = rememberNavController()
-    val chatLabel = stringResource(Res.string.nav_chat)
-    val agentsLabel = stringResource(Res.string.nav_agents)
-    val settingsLabel = stringResource(Res.string.nav_settings)
-    val destinations = remember(chatLabel, agentsLabel, settingsLabel) {
-        listOf(
-            TopLevelDestination("chat", chatLabel, Icons.AutoMirrored.Filled.Chat, AppRoute.Chat),
-            TopLevelDestination("agents", agentsLabel, Icons.Default.Psychology, AppRoute.Agents),
-            TopLevelDestination(
-                "settings",
-                settingsLabel,
-                Icons.Default.Settings,
-                AppRoute.Settings
-            ),
-        )
+    val router = koinInject<ComposeRouter>()
+    val snackbarInteractor = koinInject<ComposeSnackbarInteractor>()
+    val snackbarHostState = remember { SnackbarHostState() }
+    val clipboardManager = LocalClipboardManager.current
+    val uiScope = rememberCoroutineScope()
+    val currentBackStackEntry by navController.currentBackStackEntryAsState()
+    val destinations: EnumEntries<TopLevelDestination> = TopLevelDestination.entries
+    val selectedDestination: TopLevelDestination? = destinations.firstOrNull { destination ->
+        currentBackStackEntry
+            ?.destination
+            ?.hierarchy
+            ?.any { it.hasRoute(destination.route::class) } == true
     }
-    var selectedKey by rememberSaveable { mutableStateOf(destinations.first().key) }
+    DisposableEffect(navController, router) {
+        router.attach(navController)
+        onDispose { router.release(navController) }
+    }
+    DisposableEffect(snackbarHostState, clipboardManager, uiScope, snackbarInteractor) {
+        snackbarInteractor.attach(snackbarHostState, clipboardManager, uiScope)
+        onDispose { snackbarInteractor.release(snackbarHostState) }
+    }
+    KvaceNavigationScaffold(
+        destinations = destinations,
+        selectedDestination = selectedDestination,
+        onDestinationClick = { router.navigateTopLevel(it.route) },
+        snackbarHostState = snackbarHostState,
+        content = { modifier ->
+            KvaceNavHost(
+                modifier = modifier,
+                navController = navController,
+                router = router,
+            )
+        },
+    )
+}
 
+@Composable
+private fun KvaceNavigationScaffold(
+    modifier: Modifier = Modifier,
+    destinations: List<TopLevelDestination>,
+    selectedDestination: TopLevelDestination?,
+    onDestinationClick: (TopLevelDestination) -> Unit,
+    snackbarHostState: SnackbarHostState,
+    content: @Composable (Modifier) -> Unit,
+) {
     Surface(
-        modifier = Modifier.fillMaxSize(),
+        modifier = modifier.fillMaxSize(),
         color = MaterialTheme.colorScheme.background,
     ) {
-        BoxWithConstraints {
-            when (navigationLayoutTypeForWidth(maxWidth)) {
-                NavigationLayoutType.BottomBar -> {
-                    Scaffold(
-                        content = { paddingValues ->
-                            KvaceNavHost(
-                                modifier = Modifier
-                                    .padding(paddingValues)
-                                    .consumeWindowInsets(paddingValues),
-                                navController = navController
+        NavigationSuiteScaffold(
+            navigationSuiteItems = {
+                destinations.forEach { destination ->
+                    item(
+                        modifier = Modifier.testTag("nav_${destination.key}"),
+                        selected = destination == selectedDestination,
+                        onClick = { onDestinationClick(destination) },
+                        icon = {
+                            Icon(
+                                painter = destination.icon,
+                                contentDescription = destination.label,
                             )
                         },
-                        bottomBar = {
-                            if (!WindowInsets.isImeVisible) KvaceBottomBar(
-                                destinations = destinations,
-                                selectedKey = selectedKey,
-                                onDestinationClick = { destination ->
-                                    selectedKey = destination.key
-                                    navController.navigate(destination.route)
-                                },
-                            )
-                        },
+                        label = { Text(destination.label) },
                     )
                 }
-                NavigationLayoutType.NavigationRail -> {
-                    Row(Modifier.fillMaxSize()) {
-                        KvaceNavigationRail(
-                            destinations = destinations,
-                            selectedKey = selectedKey,
-                            onDestinationClick = { destination ->
-                                selectedKey = destination.key
-                                navController.navigate(destination.route)
-                            },
-                        )
-                        KvaceNavHost(navController = navController)
-                    }
-                }
+            },
+        ) {
+            Scaffold(
+                snackbarHost = {
+                    SnackbarHost(
+                        hostState = snackbarHostState,
+                        modifier = Modifier
+                            .navigationBarsPadding()
+                            .imePadding(),
+                    )
+                },
+            ) { paddingValues ->
+                content(
+                    Modifier
+                        .padding(paddingValues)
+                        .consumeWindowInsets(paddingValues),
+                )
             }
         }
     }
 }
 
 @Composable
-private fun KvaceNavHost(modifier: Modifier = Modifier, navController: NavHostController) {
+private fun KvaceNavHost(
+    modifier: Modifier = Modifier,
+    navController: NavHostController,
+    router: ComposeRouter,
+) {
     NavHost(
         modifier = modifier
             .fillMaxSize()
@@ -128,69 +153,44 @@ private fun KvaceNavHost(modifier: Modifier = Modifier, navController: NavHostCo
         startDestination = AppRoute.Chat,
     ) {
         composable<AppRoute.Chat> {
-            val viewModel = koinViewModel<ChatViewModel>()
-            ChatScreen(viewModel = viewModel)
+            ChatScreen(viewModel = koinViewModel<ChatViewModel>())
         }
         composable<AppRoute.Agents> {
-            val viewModel = koinViewModel<AgentConfigViewModel>()
-            AgentConfigScreen(viewModel = viewModel)
+            AgentConfigScreen(
+                viewModel = koinViewModel<AgentConfigViewModel>(),
+                ollamaEndpointSettingsViewModel = koinViewModel<OllamaEndpointSettingsViewModel>(),
+            )
         }
         composable<AppRoute.Settings> {
-            val settingsViewModel = koinViewModel<SettingsViewModel>()
-            val ollamaEndpointSettingsViewModel = koinViewModel<OllamaEndpointSettingsViewModel>()
             SettingsScreen(
-                settingsViewModel = settingsViewModel,
-                onThemeClick = { navController.navigate(AppRoute.ThemeDialog) },
-                agentSettingsContent = {
-                    OllamaEndpointSettings(viewModel = ollamaEndpointSettingsViewModel)
-                },
+                settingsViewModel = koinViewModel<SettingsViewModel>(),
+                harnessSettingsViewModel = koinViewModel<HarnessSettingsViewModel>(),
             )
         }
         dialog<AppRoute.ThemeDialog> {
-            ThemeDialogContent(dismissDialog = navController::popBackStack)
+            ThemeDialogContent(dismissDialog = router::popBackStack)
         }
     }
 }
 
+@Preview
 @Composable
-private fun KvaceBottomBar(
-    destinations: List<TopLevelDestination>,
-    selectedKey: String,
-    onDestinationClick: (TopLevelDestination) -> Unit,
-) {
-    NavigationBar {
-        destinations.forEach { destination ->
-            NavigationBarItem(
-                selected = destination.key == selectedKey,
-                onClick = { onDestinationClick(destination) },
-                icon = { Icon(destination.icon, contentDescription = destination.label) },
-                label = { Text(destination.label) },
-            )
-        }
+private fun KvaceNavigationShellPreview() {
+    val destinations: EnumEntries<TopLevelDestination> = TopLevelDestination.entries
+    MaterialTheme {
+        KvaceNavigationScaffold(
+            destinations = destinations,
+            selectedDestination = destinations.first(),
+            onDestinationClick = {},
+            snackbarHostState = remember { SnackbarHostState() },
+            content = { modifier ->
+                Surface(modifier = modifier.fillMaxSize()) {
+                    Text(
+                        text = destinations.first().label,
+                        modifier = Modifier.padding(24.dp),
+                    )
+                }
+            },
+        )
     }
 }
-
-@Composable
-private fun KvaceNavigationRail(
-    destinations: List<TopLevelDestination>,
-    selectedKey: String,
-    onDestinationClick: (TopLevelDestination) -> Unit,
-) {
-    NavigationRail {
-        destinations.forEach { destination ->
-            NavigationRailItem(
-                selected = destination.key == selectedKey,
-                onClick = { onDestinationClick(destination) },
-                icon = { Icon(destination.icon, contentDescription = destination.label) },
-                label = { Text(destination.label) },
-            )
-        }
-    }
-}
-
-private data class TopLevelDestination(
-    val key: String,
-    val label: String,
-    val icon: ImageVector,
-    val route: AppRoute,
-)

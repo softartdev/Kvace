@@ -65,6 +65,6 @@ kotlin {
         }
     }
     compilerOptions {
-        freeCompilerArgs.add("-Xexpect-actual-classes")
+        freeCompilerArgs.addAll("-Xexpect-actual-classes", "-Xexplicit-backing-fields")
     }
 }

@@ -11,24 +11,28 @@ import ai.koog.prompt.params.LLMParams
 import ai.koog.prompt.streaming.StreamFrame
 import co.touchlab.kermit.Logger
 import com.softartdev.kvace.feature.agent.domain.AgentConfigurationRepository
+import com.softartdev.kvace.feature.agent.domain.AgentConversationRole
 import com.softartdev.kvace.feature.agent.domain.AgentExecutionEvent
 import com.softartdev.kvace.feature.agent.domain.AgentProviderConfig
 import com.softartdev.kvace.feature.agent.domain.AgentProviderId
 import com.softartdev.kvace.feature.agent.domain.AgentRequest
 import com.softartdev.kvace.feature.agent.domain.AgentRuntime
-import kotlinx.coroutines.CancellationException
+import com.softartdev.kvace.feature.agent.domain.HarnessConfigurationRepository
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.FlowCollector
 import kotlinx.coroutines.flow.flow
 
 actual class KoogAgentRuntime actual constructor(
     private val configurationRepository: AgentConfigurationRepository,
+    private val harnessConfigurationRepository: HarnessConfigurationRepository,
     private val onDeviceModelProvider: OnDeviceModelProvider,
 ) : AgentRuntime {
     private val logger = Logger.withTag("KoogAgentRuntime")
 
     actual override fun execute(request: AgentRequest): Flow<AgentExecutionEvent> = flow {
-        val provider = request.providerId
+        val provider: AgentProviderConfig? = request.providerId
             ?.let { id -> configurationRepository.providers.value.firstOrNull { it.id == id } }
             ?: configurationRepository.selectedProvider.value
 
@@ -37,8 +41,8 @@ actual class KoogAgentRuntime actual constructor(
             return@flow
         }
         when (provider.id) {
-            AgentProviderId.Ollama -> executeOllama(provider, request.prompt)
-            AgentProviderId.OnDevice -> executeOnDevice(provider, request.prompt)
+            AgentProviderId.Ollama -> executeOllama(provider, request)
+            AgentProviderId.OnDevice -> executeOnDevice(provider, request)
             AgentProviderId.OpenAI -> emit(
                 AgentExecutionEvent.Error("OpenAI execution needs secure credential storage before it can be enabled.")
             )
@@ -47,7 +51,7 @@ actual class KoogAgentRuntime actual constructor(
 
     private suspend fun FlowCollector<AgentExecutionEvent>.executeOllama(
         provider: AgentProviderConfig,
-        prompt: String,
+        request: AgentRequest,
     ) {
         val endpoint: String? = provider.endpoint
         if (endpoint.isNullOrBlank()) {
@@ -70,8 +74,14 @@ actual class KoogAgentRuntime actual constructor(
                 id = "kvace-chat",
                 params = LLMParams(temperature = DEFAULT_TEMPERATURE),
             ) {
-                system(DEFAULT_SYSTEM_PROMPT)
-                user(prompt)
+                harnessConfigurationRepository.config.value.systemPromptIfEnabled()?.let { system(it) }
+                request.context.forEach { message ->
+                    when (message.role) {
+                        AgentConversationRole.User -> user(message.text)
+                        AgentConversationRole.Assistant -> assistant(message.text)
+                    }
+                }
+                user(request.prompt)
             }
             val streamedText = StringBuilder()
             var textCompleteReceived = false
@@ -116,11 +126,9 @@ actual class KoogAgentRuntime actual constructor(
             if (!textCompleteReceived && response.isNotBlank()) {
                 emit(AgentExecutionEvent.AssistantMessage(response))
             }
-        } catch (error: CancellationException) {
-            logger.e(error) { "KoogAgentRuntime cancelled Ollama request with ${provider.modelName} at $endpoint" }
-            throw error
         } catch (error: Throwable) {
-            logger.e(error) { "KoogAgentRuntime failed to execute Ollama request with ${provider.modelName} at $endpoint" }
+            currentCoroutineContext().ensureActive()
+            logger.e(error) { "Failed to execute Ollama request with ${provider.modelName} at $endpoint" }
             emit(AgentExecutionEvent.Error(error.message ?: "Ollama request failed."))
         } finally {
             client.close()
@@ -129,13 +137,12 @@ actual class KoogAgentRuntime actual constructor(
 
     private suspend fun FlowCollector<AgentExecutionEvent>.executeOnDevice(
         provider: AgentProviderConfig,
-        prompt: String,
+        request: AgentRequest,
     ) {
         if (!onDeviceModelProvider.isAvailable) {
             emit(AgentExecutionEvent.Error("On-device AI is unavailable on this platform or OS version."))
             return
         }
-
         val client = OnDeviceLLMClient(onDeviceModelProvider)
         try {
             val model = onDeviceLLModel(provider.modelName)
@@ -143,21 +150,25 @@ actual class KoogAgentRuntime actual constructor(
                 id = "kvace-on-device-chat",
                 params = LLMParams(temperature = DEFAULT_TEMPERATURE),
             ) {
-                system(DEFAULT_SYSTEM_PROMPT)
-                user(prompt)
+                harnessConfigurationRepository.config.value.systemPromptIfEnabled()?.let { system(it) }
+                request.context.forEach { message ->
+                    when (message.role) {
+                        AgentConversationRole.User -> user(message.text)
+                        AgentConversationRole.Assistant -> assistant(message.text)
+                    }
+                }
+                user(request.prompt)
             }
             val response = client.execute(singleTurnPrompt, model)
             val text = response.textContent().trim()
-            if (text.isBlank()) {
-                emit(AgentExecutionEvent.Error("On-device AI returned an empty response."))
-            } else {
-                emit(AgentExecutionEvent.AssistantMessage(text))
+            val event: AgentExecutionEvent = when {
+                text.isBlank() -> AgentExecutionEvent.Error("On-device AI returned an empty response.")
+                else -> AgentExecutionEvent.AssistantMessage(text)
             }
-        } catch (error: CancellationException) {
-            logger.e(error) { "KoogAgentRuntime cancelled on-device request with ${provider.modelName}" }
-            throw error
+            emit(event)
         } catch (error: Throwable) {
-            logger.e(error) { "KoogAgentRuntime failed to execute on-device request with ${provider.modelName}" }
+            currentCoroutineContext().ensureActive()
+            logger.e(error) { "Failed to execute on-device request with ${provider.modelName}" }
             emit(AgentExecutionEvent.Error(error.message ?: "On-device AI request failed."))
         } finally {
             client.close()
@@ -189,9 +200,11 @@ actual class KoogAgentRuntime actual constructor(
             .joinToString(separator = separator)
             .takeIf { it.isNotBlank() }
 
+    private fun com.softartdev.kvace.feature.agent.domain.HarnessConfig.systemPromptIfEnabled(): String? =
+        systemPrompt.trim().takeIf { enabled && it.isNotBlank() }
+
     private companion object {
         const val DEFAULT_CONTEXT_LENGTH = 4096L
         const val DEFAULT_TEMPERATURE = 0.7
-        const val DEFAULT_SYSTEM_PROMPT = "You are Kvace, a concise AI assistant inside a multiplatform agent app."
     }
 }

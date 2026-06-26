@@ -4,6 +4,7 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
     alias(libs.plugins.androidMultiplatformLibrary)
+    alias(libs.plugins.aboutLibraries)
     alias(libs.plugins.composeMultiplatform)
     alias(libs.plugins.composeCompiler)
     alias(libs.plugins.kotlinSerialization)
@@ -17,6 +18,7 @@ kotlin {
         iosTarget.binaries.framework {
             baseName = "Shared"
             isStatic = true
+            binaryOption("bundleId", "com.softartdev.kvace.shared")
         }
     }
     jvm()
@@ -46,6 +48,7 @@ kotlin {
         commonMain.dependencies {
             implementation(projects.core.data)
             implementation(projects.core.domain)
+            implementation(projects.core.presentation)
             implementation(projects.core.ui)
             implementation(projects.feature.agent.data)
             implementation(projects.feature.agent.domain)
@@ -62,7 +65,7 @@ kotlin {
             implementation(libs.compose.runtime)
             implementation(libs.compose.foundation)
             implementation(libs.compose.material3)
-            implementation(libs.compose.material.icons.extended)
+            implementation(libs.compose.material3.adaptive.navigation.suite)
             implementation(libs.compose.ui)
             implementation(libs.compose.components.resources)
             implementation(libs.compose.uiToolingPreview)
@@ -81,6 +84,16 @@ kotlin {
         commonTest.dependencies {
             implementation(libs.kotlin.test)
         }
+        jvmTest.dependencies {
+            implementation(libs.koin.test)
+        }
+    }
+}
+
+aboutLibraries {
+    export {
+        outputFile = file("../../core/ui/src/commonMain/composeResources/files/aboutlibraries.json")
+        prettyPrint = true
     }
 }
 

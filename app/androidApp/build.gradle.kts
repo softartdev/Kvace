@@ -40,6 +40,7 @@ dependencies {
     implementation(projects.app.shared)
     implementation(libs.androidx.activity.compose)
     implementation(libs.compose.uiToolingPreview)
+    implementation(libs.kermit)
     implementation(libs.kronos)
     debugImplementation(libs.compose.uiTooling)
     debugImplementation(libs.compose.ui.test.manifest)

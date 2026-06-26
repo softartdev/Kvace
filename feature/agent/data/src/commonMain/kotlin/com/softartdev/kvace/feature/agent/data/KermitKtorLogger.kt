@@ -8,7 +8,5 @@ internal class KermitKtorLogger(
     private val severity: Severity,
     private val logger: KermitLogger,
 ) : KtorLogger {
-    override fun log(message: String) {
-        logger.log(severity, logger.tag, null, message)
-    }
+    override fun log(message: String) = logger.log(severity, logger.tag, null, message)
 }

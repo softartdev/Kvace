@@ -1,8 +1,0 @@
-<resources>
-    <string name="settings_title">Settings</string>
-    <string name="settings_section_appearance">Appearance</string>
-    <string name="settings_section_agents">Agents</string>
-    <string name="settings_section_about">About</string>
-    <string name="settings_agents_message">Configure local agent provider settings here.</string>
-    <string name="settings_about_message">Kvace is a Kotlin Multiplatform AI agent workspace.</string>
-</resources>

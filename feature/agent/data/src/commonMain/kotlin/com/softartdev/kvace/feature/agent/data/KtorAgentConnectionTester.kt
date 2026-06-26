@@ -5,10 +5,12 @@ import com.softartdev.kvace.feature.agent.domain.AgentConnectionTestResult
 import com.softartdev.kvace.feature.agent.domain.AgentConnectionTester
 import com.softartdev.kvace.feature.agent.domain.AgentProviderConfig
 import com.softartdev.kvace.feature.agent.domain.AgentProviderId
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 
-class KtorAgentConnectionTester(
-    private val logger: Logger,
-) : AgentConnectionTester {
+class KtorAgentConnectionTester : AgentConnectionTester {
+    private val logger = Logger.withTag("KtorAgentConnectionTester")
+
     override suspend fun testConnection(config: AgentProviderConfig): AgentConnectionTestResult {
         return when (config.id) {
             AgentProviderId.Ollama -> config.endpoint
@@ -19,24 +21,26 @@ class KtorAgentConnectionTester(
         }
     }
 
-    private suspend fun testOllama(endpoint: String): AgentConnectionTestResult =
-        runCatching {
+    private suspend fun testOllama(endpoint: String): AgentConnectionTestResult {
+        return try {
             val url = "${endpoint.trimEnd('/')}/api/version"
             val status = fetchAgentEndpointStatus(
                 url = url,
                 timeoutMillis = CONNECTION_TEST_TIMEOUT_MILLIS,
             )
             if (status in HTTP_SUCCESS_RANGE) {
-                logger.i { "KtorAgentConnectionTester connected to Ollama at $endpoint" }
+                logger.i { "Connected to Ollama at $endpoint" }
                 AgentConnectionTestResult.Success
             } else {
-                logger.w { "KtorAgentConnectionTester received HTTP $status from Ollama at $endpoint" }
+                logger.w { "Received HTTP $status from Ollama at $endpoint" }
                 AgentConnectionTestResult.Failure("HTTP $status")
             }
-        }.getOrElse { error ->
-            logger.e(error) { "KtorAgentConnectionTester failed to connect to Ollama at $endpoint" }
+        } catch (error: Throwable) {
+            currentCoroutineContext().ensureActive()
+            logger.e(error) { "Failed to connect to Ollama at $endpoint" }
             AgentConnectionTestResult.Failure(error.message)
         }
+    }
 
     private companion object {
         const val CONNECTION_TEST_TIMEOUT_MILLIS = 15_000L
