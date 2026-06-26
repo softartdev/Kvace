@@ -3,7 +3,6 @@ package com.softartdev.kvace.feature.chat.presentation
 import com.softartdev.kvace.core.domain.util.CoroutineDispatchers
 import com.softartdev.kvace.core.presentation.SnackbarInteractor
 import com.softartdev.kvace.core.presentation.SnackbarMessage
-import com.softartdev.kvace.core.presentation.SnackbarMessageResource
 import com.softartdev.kvace.core.presentation.TextShareInteractor
 import com.softartdev.kvace.feature.chat.domain.ChatMessage
 import com.softartdev.kvace.feature.chat.domain.ChatRepository
@@ -188,7 +187,7 @@ class ChatViewModelTest {
         viewModel.onAction(ChatAction.MessageShared(1L))
 
         assertEquals(
-            SnackbarMessage.Resource(SnackbarMessageResource.ChatShareFailed),
+            SnackbarMessage.Text(value = "No share target", copyable = true),
             snackbarInteractor.messages.single(),
         )
     }
