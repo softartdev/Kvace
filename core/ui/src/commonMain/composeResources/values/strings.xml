@@ -30,6 +30,7 @@
     <string name="chat_delete_confirm_title">Delete chat?</string>
     <string name="chat_delete_confirm_message">Delete &quot;%1$s&quot; and all its messages?</string>
     <string name="chat_scroll_to_latest_content_description">Scroll to latest message</string>
+    <string name="chat_scroll_position_content_description">Chat scroll position</string>
     <string name="chat_cancel">Cancel</string>
     <string name="chat_save">Save</string>
     <string name="chat_empty_message">Start a new chat to keep the conversation history here.</string>

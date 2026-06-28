@@ -1,21 +1,28 @@
-@file:OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3AdaptiveApi::class, ExperimentalMaterial3Api::class)
+@file:OptIn(
+    ExperimentalFoundationApi::class,
+    ExperimentalMaterial3AdaptiveApi::class,
+    ExperimentalMaterial3Api::class,
+    ExperimentalMaterial3ExpressiveApi::class,
+)
 @file:Suppress("DEPRECATION")
 
 package com.softartdev.kvace.feature.chat.ui
 
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.ScrollIndicatorState
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
@@ -30,6 +37,7 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -38,10 +46,13 @@ import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SliderDefaults
+import androidx.compose.material3.SliderState
 import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.VerticalSlider
 import androidx.compose.material3.adaptive.ExperimentalMaterial3AdaptiveApi
 import androidx.compose.material3.adaptive.layout.ListDetailPaneScaffold
 import androidx.compose.material3.adaptive.layout.ListDetailPaneScaffoldRole
@@ -55,6 +66,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -71,10 +83,13 @@ import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.tooling.preview.PreviewParameter
+import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import com.softartdev.kvace.core.ui.KvaceVerticalPaneExpansionDragHandle
 import com.softartdev.kvace.feature.chat.domain.ChatMessage
@@ -85,10 +100,12 @@ import com.softartdev.kvace.feature.chat.presentation.ChatAction
 import com.softartdev.kvace.feature.chat.presentation.ChatUiState
 import com.softartdev.kvace.feature.chat.presentation.ChatViewModel
 import com.softartdev.kvace.core.ui.resources.*
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
+import kotlin.math.roundToInt
 
 @Composable
 fun ChatScreen(modifier: Modifier = Modifier, viewModel: ChatViewModel) {
@@ -324,6 +341,9 @@ private fun ConversationDetailContent(
     val initialItemIndex = (initialItemCount - 1).coerceAtLeast(0)
     val messageListState = rememberLazyListState(initialFirstVisibleItemIndex = initialItemIndex)
     val coroutineScope = rememberCoroutineScope()
+    var isScrubbingMessages by remember { mutableStateOf(false) }
+    var scrubProgress by remember { mutableFloatStateOf(0f) }
+    var scrollToProgressJob by remember { mutableStateOf<Job?>(null) }
     val lastMessageText = conversation.messages.lastOrNull()?.text
     val itemCount = conversation.messages.size + if (isSending) 1 else 0
     val scrollProgress by remember(messageListState) {
@@ -342,19 +362,17 @@ private fun ConversationDetailContent(
         }
     }
     LaunchedEffect(conversation.id, conversation.messages.size, lastMessageText, isSending) {
-        if (itemCount > 0 && isNearLatestMessage) {
-            messageListState.animateScrollToItem(itemCount - 1)
+        if (itemCount > 0 && isNearLatestMessage && !isScrubbingMessages) {
+            messageListState.scrollToEnd(itemCount)
         }
     }
 
     Column(
         modifier = modifier,
     ) {
-        ChatMessageListScrollIndicator(
-            isSending = isSending,
-            canScroll = canScrollMessages,
-            progress = scrollProgress,
-        )
+        if (isSending) {
+            LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+        }
         Box(
             modifier = Modifier
                 .weight(1f)
@@ -363,7 +381,7 @@ private fun ConversationDetailContent(
             LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(horizontal = 16.dp),
+                    .padding(start = 16.dp, end = if (canScrollMessages) 32.dp else 16.dp),
                 state = messageListState,
                 verticalArrangement = Arrangement.spacedBy(10.dp),
                 contentPadding = PaddingValues(vertical = 12.dp),
@@ -389,6 +407,20 @@ private fun ConversationDetailContent(
                     }
                 }
             }
+            ChatMessageListScrollSlider(
+                modifier = Modifier.align(Alignment.CenterEnd),
+                canScroll = canScrollMessages,
+                progress = if (isScrubbingMessages) scrubProgress else scrollProgress,
+                onProgressChange = { progress ->
+                    isScrubbingMessages = true
+                    scrubProgress = progress
+                    scrollToProgressJob?.cancel()
+                    scrollToProgressJob = coroutineScope.launch {
+                        messageListState.scrollToProgress(progress)
+                    }
+                },
+                onProgressChangeFinished = { isScrubbingMessages = false },
+            )
             if (!isNearLatestMessage && itemCount > 0) {
                 SmallFloatingActionButton(
                     modifier = Modifier
@@ -396,7 +428,7 @@ private fun ConversationDetailContent(
                         .padding(24.dp),
                     onClick = {
                         coroutineScope.launch {
-                            messageListState.animateScrollToItem(itemCount - 1)
+                            messageListState.scrollToEnd(itemCount)
                         }
                     },
                 ) {
@@ -575,21 +607,69 @@ private fun SelectChatPlaceholder(modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun ChatMessageListScrollIndicator(
+private fun ChatMessageListScrollSlider(
     modifier: Modifier = Modifier,
-    isSending: Boolean,
     canScroll: Boolean,
     progress: Float,
+    onProgressChange: (Float) -> Unit,
+    onProgressChangeFinished: () -> Unit,
 ) {
-    when {
-        isSending -> LinearProgressIndicator(modifier = modifier.fillMaxWidth())
-        canScroll -> LinearProgressIndicator(
-            modifier = modifier.fillMaxWidth(),
-            progress = { progress },
-            drawStopIndicator = {},
-        )
+    if (!canScroll) return
+
+    val interactionSource = remember { MutableInteractionSource() }
+    val scrollPositionContentDescription = stringResource(
+        Res.string.chat_scroll_position_content_description,
+    )
+    val sliderState = remember { SliderState(value = progress) }
+    sliderState.onValueChange = { value ->
+        sliderState.value = value
+        onProgressChange(value)
     }
+    sliderState.onValueChangeFinished = onProgressChangeFinished
+    LaunchedEffect(progress, sliderState.isDragging) {
+        if (!sliderState.isDragging) {
+            sliderState.value = progress
+        }
+    }
+    VerticalSlider(
+        modifier = modifier
+            .fillMaxHeight()
+            .width(24.dp)
+            .semantics { contentDescription = scrollPositionContentDescription },
+        state = sliderState,
+        interactionSource = interactionSource,
+        thumb = { state ->
+            SliderDefaults.Thumb(
+                interactionSource = interactionSource,
+                sliderState = state,
+                thumbSize = DpSize(14.dp, 14.dp),
+            )
+        },
+        track = { sliderState ->
+            SliderDefaults.Track(
+                modifier = Modifier.width(4.dp),
+                sliderState = sliderState,
+                drawStopIndicator = null,
+                thumbTrackGapSize = 0.dp,
+            )
+        },
+    )
 }
+
+private suspend fun LazyListState.scrollToProgress(
+    progress: Float,
+    itemCount: Int = layoutInfo.totalItemsCount,
+) {
+    val target = chatScrollTarget(progress, itemCount) ?: return
+    scrollToItem(target.index)
+    val itemSize = layoutInfo.visibleItemsInfo.firstOrNull { it.index == target.index }?.size ?: return
+    scrollToItem(target.index, (itemSize * target.offsetFraction).roundToInt())
+}
+
+private suspend fun LazyListState.scrollToEnd(itemCount: Int) = scrollToProgress(
+    progress = 1f,
+    itemCount = itemCount,
+)
 
 @Composable
 private fun ChatLoadingIndicator() = Card(
@@ -799,26 +879,24 @@ private fun ChatMessageItem(message: ChatMessage, onAction: (ChatAction) -> Unit
 }
 
 private fun LazyListState.scrollProgress(): Float {
-    scrollIndicatorState?.progress()?.let { return it }
     val layoutInfo = layoutInfo
-    val visibleItems = layoutInfo.visibleItemsInfo
-    if (visibleItems.isEmpty() || layoutInfo.totalItemsCount == 0) return 0f
-    val averageItemSize = visibleItems.sumOf { it.size }.toFloat() / visibleItems.size
-    val viewportSize = (layoutInfo.viewportEndOffset - layoutInfo.viewportStartOffset).coerceAtLeast(0)
-    val contentSize = averageItemSize * layoutInfo.totalItemsCount
-    val scrollRange = contentSize - viewportSize
-    if (scrollRange <= 0f) return 0f
-    val firstVisible = visibleItems.first()
-    val scrollOffset = firstVisible.index * averageItemSize - firstVisible.offset
-    return (scrollOffset / scrollRange).coerceIn(0f, 1f)
+    val itemCount = layoutInfo.totalItemsCount
+    if (itemCount == 0 || !canScrollBackward) return 0f
+    if (!canScrollForward) return 1f
+    val firstVisibleItem = layoutInfo.visibleItemsInfo.firstOrNull() ?: return 0f
+    val offsetFraction = firstVisibleItemScrollOffset.toFloat() / firstVisibleItem.size.coerceAtLeast(1)
+    return ((firstVisibleItemIndex + offsetFraction) / itemCount).coerceIn(0f, 1f)
 }
 
-private fun ScrollIndicatorState.progress(): Float? {
-    if (scrollOffset == Int.MAX_VALUE || contentSize == Int.MAX_VALUE || viewportSize == Int.MAX_VALUE) return null
-    val scrollRange = contentSize - viewportSize
-    if (scrollRange <= 0) return null
-    return (scrollOffset.toFloat() / scrollRange.toFloat()).coerceIn(0f, 1f)
+internal fun chatScrollTarget(progress: Float, itemCount: Int): ChatScrollTarget? {
+    if (itemCount <= 0) return null
+    val itemPosition = progress.coerceIn(0f, 1f) * itemCount
+    val index = itemPosition.toInt().coerceAtMost(itemCount - 1)
+    val offsetFraction = (itemPosition - index).coerceIn(0f, 1f)
+    return ChatScrollTarget(index, offsetFraction)
 }
+
+internal data class ChatScrollTarget(val index: Int, val offsetFraction: Float)
 
 private fun LazyListState.isNearLatestMessage(itemCount: Int): Boolean {
     if (itemCount == 0 || !canScrollForward) return true
