@@ -66,6 +66,25 @@ The stateful overload receives a ViewModel, collects state, starts screen-owned 
 - One global snackbar host is bound with clipboard and UI scope through `DisposableEffect`.
 - Shared Koin bindings live in `kvaceModule`; it includes the platform-specific module.
 
+### Platform Implementations And DI
+
+Contracts with platform-dependent mechanics keep their contract and shared fallback behavior in common code. When
+behavior or unavailable text differs by target, expose a named implementation from the corresponding platform source
+set. This also applies to unsupported targets: use a concrete `Ios...`, `Web...`, or other platform adapter that owns its
+platform-specific unavailable reason instead of constructing a generic fallback with a message inside
+`kvacePlatformModule`. A shared fallback is sufficient when behavior and text are identical across targets.
+
+Platform modules bind the concrete implementation to its contract directly when its constructor is fully resolvable:
+
+```kotlin
+singleOf(::WebShellCommandExecutor) bind ShellCommandExecutor::class
+```
+
+Do not add a local `create...` function around a zero-argument or fully injectable constructor. A constructor reference
+does not apply Kotlin default arguments automatically: Koin still attempts to resolve those parameters. When a platform
+implementation has non-DI configuration defaults, provide an explicit production constructor or use a narrow provider
+function, then verify the binding by resolving the contract in the platform DI graph test.
+
 ## Compose Resources
 
 All Compose resources are stored in `:core:ui`. App and feature modules import

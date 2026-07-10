@@ -20,9 +20,7 @@ internal actual val kvacePlatformModule = module {
     singleOf(::JvmPersistentSettingsFactory) bind PersistentSettingsFactory::class
     singleOf(::DefaultOllamaEndpointProvider) bind OllamaEndpointProvider::class
     singleOf(::DefaultUnavailableOnDeviceModelProvider) bind OnDeviceModelProvider::class
-    singleOf(::createShellCommandExecutor)
+    singleOf(::JvmShellCommandExecutor) bind ShellCommandExecutor::class
     singleOf(::JvmChatDatabaseDriverFactory) bind ChatDatabaseDriverFactory::class
     singleOf(::JvmTextShareInteractor) bind TextShareInteractor::class
 }
-
-private fun createShellCommandExecutor(): ShellCommandExecutor = JvmShellCommandExecutor()

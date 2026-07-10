@@ -23,7 +23,17 @@
   literal that is used only once.
 - Do not suppress a warning unless the warning is understood and the suppression is still necessary.
 - Use constructor injection for ViewModels, repositories, runtimes, and testers.
-- Prefer `factoryOf`, `singleOf`, and `viewModelOf` with constructor references in Koin modules.
+- Prefer `factoryOf`, `singleOf`, and `viewModelOf` with constructor references in Koin modules when every constructor
+  parameter is provided by Koin. Do not add a local factory function around a zero-argument or fully injectable
+  constructor.
+- Koin constructor-reference bindings treat Kotlin parameters with default values as dependencies. If production
+  defaults are configuration rather than injected services, expose an explicit production constructor or use a narrow
+  provider function and keep a DI graph test that resolves the bound contract.
+- When behavior or unavailable text differs by target, give platform implementations platform-specific names and keep
+  them in their source sets. Unsupported targets should expose a concrete adapter such as `IosFeatureProvider` or
+  `WebFeatureProvider`, delegating to or extending a shared unavailable implementation where useful, instead of
+  configuring a generic fallback and its platform message inside the app DI module. A shared fallback remains
+  appropriate when its behavior and message are genuinely identical across targets.
 - Group closely related models in a focused file; keep independent implementations and large classes separate.
 - Move transformations between storage/data/domain/presentation/UI entities into focused mapper files near the owning layer. Do not hide cross-layer mapping inside repositories, use cases, ViewModels, or Composables.
 

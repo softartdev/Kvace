@@ -108,3 +108,10 @@ Each feature (`chat`, `agent`, `settings`) is split into four modules: `domain`,
 - Bind and release navigation, snackbar host, clipboard, and UI scope with `DisposableEffect`
 - Keep durable connection/model errors inline; reserve snackbar infrastructure for transient messages
 - Shared bindings live in one `kvaceModule`; platform bindings remain in `kvacePlatformModule`
+- When a contract has target-specific behavior or unavailable text, give it a named implementation in the owning
+  platform source set, including unsupported adapters such as `Ios...` or `Web...`; keep platform messages and behavior
+  out of app DI declarations
+- Bind platform implementations with `singleOf(::PlatformImplementation) bind Contract::class` when every constructor
+  parameter is a Koin dependency. Kotlin default parameters are still treated as dependencies by constructor-reference
+  bindings, so use an explicit production constructor or a narrow provider function when configuration values are not
+  supplied by Koin
