@@ -6,6 +6,7 @@ import org.jetbrains.kotlin.gradle.plugin.KotlinHierarchyTemplate
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
     alias(libs.plugins.androidMultiplatformLibrary)
+    alias(libs.plugins.kotlinSerialization)
 }
 
 configurations.configureEach {
@@ -41,6 +42,7 @@ kotlin {
             dependencies {
                 implementation(libs.koog.prompt.executor.model)
                 implementation(libs.koog.prompt.executor.ollama.client)
+                implementation(libs.koog.agents.tools)
                 implementation(libs.koog.http.client.ktor)
                 implementation(libs.ktor.client.cio)
             }

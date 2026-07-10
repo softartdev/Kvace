@@ -8,6 +8,7 @@ import com.softartdev.kvace.feature.agent.domain.AgentProviderId
 import com.softartdev.kvace.feature.agent.domain.AgentRequest
 import com.softartdev.kvace.feature.agent.domain.AgentRuntime
 import com.softartdev.kvace.feature.agent.domain.HarnessConfigurationRepository
+import com.softartdev.kvace.feature.agent.domain.ShellCommandExecutor
 import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.request.header
 import io.ktor.client.request.preparePost
@@ -27,6 +28,7 @@ actual class KoogAgentRuntime actual constructor(
     private val configurationRepository: AgentConfigurationRepository,
     private val harnessConfigurationRepository: HarnessConfigurationRepository,
     onDeviceModelProvider: OnDeviceModelProvider,
+    shellCommandExecutor: ShellCommandExecutor,
 ) : AgentRuntime {
     private val logger = Logger.withTag("KoogAgentRuntime")
 

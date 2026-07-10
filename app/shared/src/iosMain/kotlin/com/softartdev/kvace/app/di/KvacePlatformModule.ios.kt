@@ -7,6 +7,8 @@ import com.softartdev.kvace.core.presentation.TextShareInteractor
 import com.softartdev.kvace.feature.agent.data.DefaultOllamaEndpointProvider
 import com.softartdev.kvace.feature.agent.data.OnDeviceModelProvider
 import com.softartdev.kvace.feature.agent.data.OllamaEndpointProvider
+import com.softartdev.kvace.feature.agent.data.UnavailableShellCommandExecutor
+import com.softartdev.kvace.feature.agent.domain.ShellCommandExecutor
 import com.softartdev.kvace.feature.chat.data.local.ChatDatabaseDriverFactory
 import com.softartdev.kvace.feature.chat.data.local.IosChatDatabaseDriverFactory
 import org.koin.core.module.dsl.singleOf
@@ -17,6 +19,10 @@ internal actual val kvacePlatformModule = module {
     singleOf(::ApplePersistentSettingsFactory) bind PersistentSettingsFactory::class
     singleOf(::DefaultOllamaEndpointProvider) bind OllamaEndpointProvider::class
     singleOf(::AppleOnDeviceModelProvider) bind OnDeviceModelProvider::class
+    singleOf(::createShellCommandExecutor)
     singleOf(::IosChatDatabaseDriverFactory) bind ChatDatabaseDriverFactory::class
     singleOf(::IosTextShareInteractor) bind TextShareInteractor::class
 }
+
+private fun createShellCommandExecutor(): ShellCommandExecutor =
+    UnavailableShellCommandExecutor("Shell command execution is unavailable on iOS.")

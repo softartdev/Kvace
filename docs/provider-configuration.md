@@ -25,6 +25,13 @@ execution uses a custom Koog `LLMClient` with provider id `on-device`, so the ag
 the model runs through platform APIs instead of an HTTP endpoint. The on-device client supports single-turn text
 generation only. It does not support tools, embeddings, moderation, or true token streaming.
 
+Ollama tool calling is enabled for one `shell_command` tool call per user send. The command executor accepts only
+read-only allowlisted commands (`pwd`, `ls`, `cat`, `head`, `tail`, `sed -n`, `rg`, and read-only `git status/diff/log/show`)
+and rejects shell syntax, path escapes, absolute file arguments, unsafe `rg` options, unsafe `git` options, and `sed`
+scripts outside numeric print ranges. Desktop JVM executes the command through `ProcessBuilder` without a shell
+interpreter. Android currently returns an unsupported tool result until a Termux bridge is configured. iOS and Web/Wasm
+return unsupported results.
+
 ## On-device
 
 On-device is listed as a provider with no editable endpoint. Kvace persists the provider selection and a platform-specific model label:

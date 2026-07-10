@@ -7,6 +7,8 @@ import ai.koog.prompt.executor.ollama.client.OllamaClient
 import ai.koog.prompt.llm.LLMCapability
 import ai.koog.prompt.llm.LLMProvider
 import ai.koog.prompt.llm.LLModel
+import ai.koog.prompt.message.Message
+import ai.koog.prompt.message.MessagePart
 import ai.koog.prompt.params.LLMParams
 import ai.koog.prompt.streaming.StreamFrame
 import co.touchlab.kermit.Logger
@@ -18,6 +20,8 @@ import com.softartdev.kvace.feature.agent.domain.AgentProviderId
 import com.softartdev.kvace.feature.agent.domain.AgentRequest
 import com.softartdev.kvace.feature.agent.domain.AgentRuntime
 import com.softartdev.kvace.feature.agent.domain.HarnessConfigurationRepository
+import com.softartdev.kvace.feature.agent.domain.ShellCommandExecutor
+import com.softartdev.kvace.feature.agent.domain.ShellCommandResult
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
@@ -28,8 +32,10 @@ actual class KoogAgentRuntime actual constructor(
     private val configurationRepository: AgentConfigurationRepository,
     private val harnessConfigurationRepository: HarnessConfigurationRepository,
     private val onDeviceModelProvider: OnDeviceModelProvider,
+    shellCommandExecutor: ShellCommandExecutor,
 ) : AgentRuntime {
     private val logger = Logger.withTag("KoogAgentRuntime")
+    private val shellCommandTool = ShellCommandTool(shellCommandExecutor)
 
     actual override fun execute(request: AgentRequest): Flow<AgentExecutionEvent> = flow {
         val provider: AgentProviderConfig? = request.providerId
@@ -70,68 +76,167 @@ actual class KoogAgentRuntime actual constructor(
                 capabilities = listOf(LLMCapability.Temperature),
                 contextLength = DEFAULT_CONTEXT_LENGTH,
             )
-            val streamingPrompt: Prompt = prompt(
-                id = "kvace-chat",
-                params = LLMParams(temperature = DEFAULT_TEMPERATURE),
-            ) {
-                harnessConfigurationRepository.config.value.systemPromptIfEnabled()?.let { system(it) }
-                request.context.forEach { message ->
-                    when (message.role) {
-                        AgentConversationRole.User -> user(message.text)
-                        AgentConversationRole.Assistant -> assistant(message.text)
-                    }
-                }
-                user(request.prompt)
+            val chatPrompt: Prompt = buildChatPrompt(id = "kvace-chat", request = request)
+            val initialResponse = client.execute(
+                prompt = chatPrompt,
+                model = model,
+                tools = listOf(shellCommandTool.descriptor),
+            )
+            val toolCalls = initialResponse.parts.filterIsInstance<MessagePart.Tool.Call>()
+            if (toolCalls.isEmpty()) {
+                emitAssistantResponse(initialResponse)
+                return
             }
-            val streamedText = StringBuilder()
-            var textCompleteReceived = false
-            client.executeStreaming(streamingPrompt, model).collect { frame: StreamFrame ->
-                when (frame) {
-                    is StreamFrame.TextDelta -> {
-                        streamedText.append(frame.text)
-                        emit(AgentExecutionEvent.AssistantMessageDelta(frame.text))
-                    }
-                    is StreamFrame.TextComplete -> {
-                        textCompleteReceived = true
-                        streamedText.clear()
-                        streamedText.append(frame.text)
-                        if (frame.text.isNotBlank()) {
-                            emit(AgentExecutionEvent.AssistantMessage(frame.text))
-                        }
-                    }
-                    is StreamFrame.ReasoningDelta -> {
-                        frame.displayText()?.let { text ->
-                            emit(AgentExecutionEvent.ReasoningDelta(text))
-                        }
-                    }
-                    is StreamFrame.ReasoningComplete -> {
-                        frame.displayText()?.let { text ->
-                            emit(AgentExecutionEvent.ReasoningMessage(text))
-                        }
-                    }
-                    is StreamFrame.ToolCallDelta -> {
-                        frame.displayText()?.let { text ->
-                            emit(AgentExecutionEvent.ToolCallDelta(text))
-                        }
-                    }
-                    is StreamFrame.ToolCallComplete -> {
-                        emit(AgentExecutionEvent.ToolCall(frame.displayText()))
-                    }
-                    is StreamFrame.End -> {
-                        emit(AgentExecutionEvent.StreamFinished(frame.finishReason))
-                    }
-                }
-            }
-            val response = streamedText.toString()
-            if (!textCompleteReceived && response.isNotBlank()) {
-                emit(AgentExecutionEvent.AssistantMessage(response))
-            }
+            val toolResults = executeShellToolCalls(toolCalls)
+            emit(AgentExecutionEvent.ToolCall(toolResults.joinToString(separator = "\n\n") { it.displayText }))
+            val followUpPrompt = buildToolFollowUpPrompt(
+                request = request,
+                assistantResponse = initialResponse,
+                toolResults = toolResults,
+            )
+            streamOllamaResponse(client, followUpPrompt, model)
         } catch (error: Throwable) {
             currentCoroutineContext().ensureActive()
             logger.e(error) { "Failed to execute Ollama request with ${provider.modelName} at $endpoint" }
             emit(AgentExecutionEvent.Error(error.message ?: "Ollama request failed."))
         } finally {
             client.close()
+        }
+    }
+
+    private fun buildChatPrompt(id: String, request: AgentRequest): Prompt = prompt(
+        id = id,
+        params = LLMParams(temperature = DEFAULT_TEMPERATURE),
+    ) {
+        harnessConfigurationRepository.config.value.systemPromptIfEnabled()?.let { system(it) }
+        request.context.forEach { message ->
+            when (message.role) {
+                AgentConversationRole.User -> user(message.text)
+                AgentConversationRole.Assistant -> assistant(message.text)
+            }
+        }
+        user(request.prompt)
+    }
+
+    private suspend fun FlowCollector<AgentExecutionEvent>.executeShellToolCalls(
+        toolCalls: List<MessagePart.Tool.Call>,
+    ): List<ShellToolExecution> {
+        val results = mutableListOf<ShellToolExecution>()
+        for ((index, call) in toolCalls.withIndex()) {
+            val args = call.shellCommandArgsOrNull()
+            if (index == 0) {
+                emit(AgentExecutionEvent.ToolCallDelta(args?.displayText() ?: call.displayText()))
+            }
+            val result: ShellCommandResult = when {
+                call.tool != SHELL_COMMAND_TOOL_NAME -> ShellCommandResult.Rejected("Unknown tool: ${call.tool}")
+                index > 0 -> ShellCommandResult.Rejected("Only one shell tool call is allowed per response.")
+                args == null -> ShellCommandResult.Rejected("shell_command arguments must be valid JSON.")
+                else -> shellCommandTool.executeForResult(args)
+            }
+            val output = result.toToolOutput()
+            results += ShellToolExecution(
+                id = call.id,
+                tool = call.tool,
+                output = output,
+                isError = result !is ShellCommandResult.Success,
+                displayText = listOf(args?.displayText() ?: call.displayText(), output)
+                    .joinNonBlank(separator = "\n\n")
+                    .orEmpty(),
+            )
+        }
+        return results
+    }
+
+    private fun buildToolFollowUpPrompt(
+        request: AgentRequest,
+        assistantResponse: Message.Assistant,
+        toolResults: List<ShellToolExecution>,
+    ): Prompt = prompt(
+        id = "kvace-chat-tool-result",
+        params = LLMParams(temperature = DEFAULT_TEMPERATURE),
+    ) {
+        messages(buildChatPrompt(id = "kvace-chat", request = request).messages)
+        assistant(
+            parts = assistantResponse.parts,
+            finishReason = assistantResponse.finishReason,
+            rawResponse = assistantResponse.rawResponse,
+            id = assistantResponse.id,
+        )
+        toolResults.forEach { result ->
+            toolResult(
+                tool = result.tool,
+                output = result.output,
+                id = result.id,
+                isError = result.isError,
+            )
+        }
+    }
+
+    private suspend fun FlowCollector<AgentExecutionEvent>.emitAssistantResponse(response: Message.Assistant) {
+        response.parts.forEach { part ->
+            when (part) {
+                is MessagePart.Text -> part.text.takeIf { it.isNotBlank() }?.let { text ->
+                    emit(AgentExecutionEvent.AssistantMessage(text))
+                }
+                is MessagePart.Attachment -> Unit
+                is MessagePart.Reasoning -> part.displayText()?.let { text ->
+                    emit(AgentExecutionEvent.ReasoningMessage(text))
+                }
+                is MessagePart.Tool.Call -> emit(AgentExecutionEvent.ToolCall(part.displayText()))
+            }
+        }
+        response.finishReason?.takeIf { it.isNotBlank() }?.let { finishReason ->
+            emit(AgentExecutionEvent.StreamFinished(finishReason))
+        }
+    }
+
+    private suspend fun FlowCollector<AgentExecutionEvent>.streamOllamaResponse(
+        client: OllamaClient,
+        streamingPrompt: Prompt,
+        model: LLModel,
+    ) {
+        val streamedText = StringBuilder()
+        var textCompleteReceived = false
+        client.executeStreaming(streamingPrompt, model).collect { frame: StreamFrame ->
+            when (frame) {
+                is StreamFrame.TextDelta -> {
+                    streamedText.append(frame.text)
+                    emit(AgentExecutionEvent.AssistantMessageDelta(frame.text))
+                }
+                is StreamFrame.TextComplete -> {
+                    textCompleteReceived = true
+                    streamedText.clear()
+                    streamedText.append(frame.text)
+                    if (frame.text.isNotBlank()) {
+                        emit(AgentExecutionEvent.AssistantMessage(frame.text))
+                    }
+                }
+                is StreamFrame.ReasoningDelta -> {
+                    frame.displayText()?.let { text ->
+                        emit(AgentExecutionEvent.ReasoningDelta(text))
+                    }
+                }
+                is StreamFrame.ReasoningComplete -> {
+                    frame.displayText()?.let { text ->
+                        emit(AgentExecutionEvent.ReasoningMessage(text))
+                    }
+                }
+                is StreamFrame.ToolCallDelta -> {
+                    frame.displayText()?.let { text ->
+                        emit(AgentExecutionEvent.ToolCallDelta(text))
+                    }
+                }
+                is StreamFrame.ToolCallComplete -> {
+                    emit(AgentExecutionEvent.ToolCall(frame.displayText()))
+                }
+                is StreamFrame.End -> {
+                    emit(AgentExecutionEvent.StreamFinished(frame.finishReason))
+                }
+            }
+        }
+        val response = streamedText.toString()
+        if (!textCompleteReceived && response.isNotBlank()) {
+            emit(AgentExecutionEvent.AssistantMessage(response))
         }
     }
 
@@ -195,6 +300,18 @@ actual class KoogAgentRuntime actual constructor(
             .joinNonBlank(separator = "\n")
             .orEmpty()
 
+    private fun MessagePart.Reasoning.displayText(): String? =
+        listOfNotNull(
+            content.joinNonBlank(separator = "\n"),
+            summary?.joinNonBlank(separator = "\n"),
+            encrypted,
+        ).joinNonBlank(separator = "\n\n")
+
+    private fun MessagePart.Tool.Call.displayText(): String =
+        listOf(tool, args)
+            .joinNonBlank(separator = "\n")
+            .orEmpty()
+
     private fun Iterable<String?>.joinNonBlank(separator: String): String? =
         mapNotNull { text -> text?.takeIf { it.isNotBlank() } }
             .joinToString(separator = separator)
@@ -208,3 +325,11 @@ actual class KoogAgentRuntime actual constructor(
         const val DEFAULT_TEMPERATURE = 0.7
     }
 }
+
+private data class ShellToolExecution(
+    val id: String?,
+    val tool: String,
+    val output: String,
+    val isError: Boolean,
+    val displayText: String,
+)

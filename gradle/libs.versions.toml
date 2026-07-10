@@ -74,6 +74,7 @@ kotlin-composeCompilerGradlePlugin = { module = "org.jetbrains.kotlin:compose-co
 kotlin-gradlePlugin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }
 koog-prompt-executor-model = { module = "ai.koog:prompt-executor-model", version.ref = "koog" }
 koog-prompt-executor-ollama-client = { module = "ai.koog:prompt-executor-ollama-client", version.ref = "koog" }
+koog-agents-tools = { module = "ai.koog:agents-tools", version.ref = "koog" }
 koog-http-client-ktor = { module = "ai.koog:http-client-ktor", version.ref = "koog" }
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinx-coroutines" }
 kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "kotlinx-coroutines" }

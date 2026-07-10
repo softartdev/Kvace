@@ -20,6 +20,18 @@ Kvace is a local-first Kotlin Multiplatform agent workspace. The first product s
    custom Koog `LLMClient`, and uses a direct streaming Ollama `/api/chat` request on Web/Wasm.
 5. Runtime events are appended to the selected conversation as chat messages. Assistant-side messages store the model label and generation timestamp known at send start.
 
+## Agent Tools
+
+Ollama can request one `shell_command` tool call per user send. The tool is exposed to Koog only from
+`:feature:agent:data`; shared domain and UI modules see the stable `ShellCommandExecutor` contract and chat `Tool`
+messages. The v1 tool is read-only and allowlisted: it rejects shell control syntax, path escapes, absolute file
+arguments, unsafe `rg` options, unsafe `git` options, and non-printing `sed` scripts. Commands run without a shell
+interpreter.
+
+Desktop JVM binds a `ProcessBuilder` executor rooted at the process working directory with a 10 second timeout and
+32 KiB / 200 line output cap. Android binds a Termux placeholder that returns an unsupported result until a Termux
+bridge is configured. iOS and Web/Wasm bind unavailable executors.
+
 Workspace keeps long conversations anchored to the latest message when a chat is opened. During generation it only
 auto-scrolls while the user is already near the latest message; if the user is reading older history, the UI preserves
 position and shows a scroll-to-latest action. Physical-keyboard users can send with Enter and insert a newline with
