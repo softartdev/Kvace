@@ -1,9 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools">
-
-    <!-- FIXME: Remove this workaround after upgrading to Koog > 1.0.0 -->
-    <uses-sdk tools:overrideLibrary="ai.koog.embeddings.base,ai.koog.prompt.executor.ollama.client,ai.koog.serialization.core,ai.koog.prompt.model,ai.koog.prompt.structure,ai.koog.agents.utils,ai.koog.prompt.llm,ai.koog.utils,ai.koog.prompt.executor.clients,ai.koog.prompt.markdown,ai.koog.prompt.tokenizer,ai.koog.prompt.executor.model,ai.koog.http.client.core,ai.koog.agents.tools,ai.koog.http.client.ktor,com.google.mlkit.genai.prompt,com.google.mlkit.genai.common" />
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_LOCAL_NETWORK" />
