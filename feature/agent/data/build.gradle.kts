@@ -38,7 +38,7 @@ kotlin {
         withHostTest {}
     }
     sourceSets {
-        val koogMain by getting {
+        val koogMain = getByName("koogMain") {
             dependencies {
                 implementation(libs.koog.prompt.executor.model)
                 implementation(libs.koog.prompt.executor.ollama.client)
@@ -67,6 +67,6 @@ kotlin {
         }
     }
     compilerOptions {
-        freeCompilerArgs.addAll("-Xexpect-actual-classes", "-Xexplicit-backing-fields")
+        freeCompilerArgs.add("-Xexpect-actual-classes")
     }
 }

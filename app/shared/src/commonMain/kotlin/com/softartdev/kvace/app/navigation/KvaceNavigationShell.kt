@@ -22,7 +22,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -55,7 +55,7 @@ fun KvaceNavigationShell() {
     val router = koinInject<ComposeRouter>()
     val snackbarInteractor = koinInject<ComposeSnackbarInteractor>()
     val snackbarHostState = remember { SnackbarHostState() }
-    val clipboardManager = LocalClipboardManager.current
+    val clipboard = LocalClipboard.current
     val uiScope = rememberCoroutineScope()
     val currentBackStackEntry by navController.currentBackStackEntryAsState()
     val destinations: EnumEntries<TopLevelDestination> = TopLevelDestination.entries
@@ -69,8 +69,8 @@ fun KvaceNavigationShell() {
         router.attach(navController)
         onDispose { router.release(navController) }
     }
-    DisposableEffect(snackbarHostState, clipboardManager, uiScope, snackbarInteractor) {
-        snackbarInteractor.attach(snackbarHostState, clipboardManager, uiScope)
+    DisposableEffect(snackbarHostState, clipboard, uiScope, snackbarInteractor) {
+        snackbarInteractor.attach(snackbarHostState, clipboard, uiScope)
         onDispose { snackbarInteractor.release(snackbarHostState) }
     }
     KvaceNavigationScaffold(

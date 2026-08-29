@@ -1,12 +1,10 @@
-@file:Suppress("DEPRECATION")
-
 package com.softartdev.kvace.app.snackbar
 
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
-import androidx.compose.ui.platform.ClipboardManager
-import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.platform.Clipboard
+import com.softartdev.kvace.app.clipboard.setPlainText
 import com.softartdev.kvace.core.presentation.SnackbarInteractor
 import com.softartdev.kvace.core.presentation.SnackbarMessage
 import com.softartdev.kvace.core.presentation.SnackbarMessageResource
@@ -19,18 +17,18 @@ import org.jetbrains.compose.resources.getString
 
 class ComposeSnackbarInteractor : SnackbarInteractor {
     private var hostState: SnackbarHostState? = null
-    private var clipboardManager: ClipboardManager? = null
+    private var clipboard: Clipboard? = null
     private var scope: CoroutineScope? = null
     private var messageJob: Job? = null
 
     fun attach(
         hostState: SnackbarHostState,
-        clipboardManager: ClipboardManager,
+        clipboard: Clipboard,
         scope: CoroutineScope,
     ) {
         messageJob?.cancel()
         this.hostState = hostState
-        this.clipboardManager = clipboardManager
+        this.clipboard = clipboard
         this.scope = scope
     }
 
@@ -39,7 +37,7 @@ class ComposeSnackbarInteractor : SnackbarInteractor {
             messageJob?.cancel()
             messageJob = null
             this.hostState = null
-            clipboardManager = null
+            clipboard = null
             scope = null
         }
     }
@@ -56,7 +54,7 @@ class ComposeSnackbarInteractor : SnackbarInteractor {
                 duration = if (copyable) SnackbarDuration.Long else SnackbarDuration.Short,
             )
             if (copyable && result == SnackbarResult.ActionPerformed) {
-                clipboardManager?.setText(AnnotatedString(text))
+                clipboard?.setPlainText(text)
             }
         }.also { messageJob = it }
     }

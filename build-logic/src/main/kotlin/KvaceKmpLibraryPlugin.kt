@@ -24,7 +24,7 @@ class KvaceKmpLibraryPlugin : Plugin<Project> {
         extensions.configure<KotlinMultiplatformExtension> {
             compilerOptions {
                 languageVersion.set(KotlinVersion.KOTLIN_2_4)
-                freeCompilerArgs.add("-Xexplicit-backing-fields")
+                freeCompilerArgs.add("-Xexpect-actual-classes")
             }
             jvm()
             @OptIn(ExperimentalWasmDsl::class)
