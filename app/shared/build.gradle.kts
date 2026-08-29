@@ -25,6 +25,7 @@ kotlin {
     @OptIn(ExperimentalWasmDsl::class)
     wasmJs {
         browser()
+        binaries.executable()
     }
     android {
        namespace = "com.softartdev.kvace.shared"

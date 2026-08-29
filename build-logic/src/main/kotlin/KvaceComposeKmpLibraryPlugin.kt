@@ -4,6 +4,7 @@ import org.gradle.api.Plugin
 import org.gradle.api.Project
 import org.gradle.kotlin.dsl.configure
 import org.gradle.kotlin.dsl.withType
+import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
 import org.jetbrains.kotlin.gradle.dsl.KotlinMultiplatformExtension
 
 class KvaceComposeKmpLibraryPlugin : Plugin<Project> {
@@ -14,6 +15,10 @@ class KvaceComposeKmpLibraryPlugin : Plugin<Project> {
         pluginManager.apply("org.jetbrains.kotlin.plugin.compose")
 
         extensions.configure<KotlinMultiplatformExtension> {
+            @OptIn(ExperimentalWasmDsl::class)
+            wasmJs {
+                binaries.executable()
+            }
             targets.withType<KotlinMultiplatformAndroidLibraryTarget>().configureEach {
                 androidResources {
                     enable = true
