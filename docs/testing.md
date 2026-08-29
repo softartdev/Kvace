@@ -83,6 +83,49 @@ android studio render-compose-preview \
 Current screenshot preview entry points cover Workspace wide/compact/sending/placeholder/long-chat/rename/delete,
 Providers wide/compact/OpenAI, and Settings Harness/Libraries/About.
 
+## Live Desktop UI Validation with Compose Hot Reload MCP
+
+Use Compose Hot Reload MCP when a UI change needs verification in the running Desktop JVM application: navigation,
+window layout, remembered state, interaction, cross-screen behavior, or the final composed UI. It complements Android
+CLI screenshot previews, which remain the preferred focused check for an isolated Composable and its sample states.
+
+The `:app:desktopApp` module already applies the Compose Hot Reload plugin. The MCP server is experimental and is
+limited to the Desktop JVM application.
+See the [Compose Hot Reload MCP documentation](https://github.com/JetBrains/compose-hot-reload#readme) for the
+complete tool reference and current limitations.
+
+### Agent setup
+
+Configure the agent host to start the server from the repository root. For Codex, add this once to its user
+configuration:
+
+```toml
+[mcp_servers.compose-hot-reload]
+command = "./gradlew"
+args = ["--no-daemon", "--quiet", "--console=plain", "hotMcpServer"]
+```
+
+MCP tools are available only to tasks created after the configuration is loaded. Start a new task in this repository
+after adding or changing the server configuration.
+
+### Verification loop
+
+1. Start the app and keep the command running:
+
+   ```bash
+   ./gradlew :app:desktopApp:hotRun
+   ```
+
+2. Use the MCP `status` tool until it reports `connected: true`.
+3. Inspect the app with `list_windows`, `get_semantic_tree`, and `take_screenshot` before making a visual claim.
+4. For interactive checks, get a fresh semantic tree and use its node IDs with `click`, `type_text`, `scroll`, or
+   `scroll_to_index`. Re-inspect the tree and screenshot after the action.
+5. After an edit, call `reload`; confirm that the reload completed, `lastError` is empty, and no window has a UI
+   error. Use `get_logs` and `get_ui_error` to diagnose failures instead of treating a process exit as visual success.
+
+Do not use MCP actions to invoke destructive, persistent, network, or AI-provider behavior unless that behavior is
+part of the requested test. Restrict interaction to the necessary scenario and safe test data.
+
 The Settings Libraries preview uses the real AboutLibraries `LibrariesContainer`. If Android Studio's renderer reports
 `NoClassDefFoundError: com/mikepenz/aboutlibraries/ui/compose/ExtensionsKt`, treat it as an Android Studio preview
 classpath issue after confirming Gradle Android compilation succeeds. Do not work around it by copying the Libraries UI

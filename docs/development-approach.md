@@ -26,6 +26,14 @@ Composables.
 
 Android CLI screenshot rendering can only render previews from Android source sets. Keep renderable screenshot previews in `app/shared/src/androidMain/kotlin/com/softartdev/kvace/preview/ScreenshootPreview.kt`, and keep larger sample state in adjacent `PreviewParameterProvider` classes. Those preview functions must call the original composables from feature UI modules; do not duplicate original screen, section, or row composables for screenshots.
 
+## Agent-Driven Visual Feedback
+
+Agents must close the loop between a Compose edit and the rendered UI. Use Android CLI screenshot previews for focused,
+isolated Composable states. For live Desktop JVM behavior — navigation, interactions, window layout, remembered state,
+and cross-screen composition — use Compose Hot Reload MCP to reload the running app, inspect its semantic tree, and
+capture a screenshot. The MCP procedure and safety boundaries are documented in
+[Testing](testing.md#live-desktop-ui-validation-with-compose-hot-reload-mcp).
+
 ## Provider Rollout
 
 Ollama remains the default provider because it can run locally without API credentials. Providers can load available Ollama models from the configured server and persist the selected model. On-device providers also avoid hosted credentials, but must stay behind platform adapters because Android and Apple expose different native APIs. Hosted providers should be added only after platform secure credential storage is available.
@@ -33,7 +41,7 @@ Ollama remains the default provider because it can run locally without API crede
 ## Platform Notes
 
 - Android emulator localhost must use `10.0.2.2`.
-- Android min SDK stays `24`. Koog `1.0.0` Android artifacts currently declare min SDK `35`, and ML Kit GenAI artifacts also need manifest override handling, so the Android app manifest temporarily uses `tools:overrideLibrary` while runtime calls remain guarded by platform checks.
+- Android min SDK stays `24`. Koog `1.2.0` Android artifacts currently declare min SDK `35`, and ML Kit GenAI artifacts also need manifest override handling, so the Android app manifest temporarily uses `tools:overrideLibrary` while runtime calls remain guarded by platform checks.
 - Desktop and iOS simulator local Ollama normally use `127.0.0.1`.
 - Web/Wasm local Ollama execution uses a direct streaming `/api/chat` request instead of Koog. It may require Ollama
   CORS configuration; CORS failures should surface as normal request failures rather than being blocked before execution.

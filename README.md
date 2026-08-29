@@ -96,16 +96,17 @@ Settings contains Harness controls for the default system prompt. When Harness i
 
 ## Key Libraries
 
-- Kotlin `2.4.0`
-- Compose Multiplatform `1.11.1`
+- Kotlin `2.4.10`
+- Compose Multiplatform `1.12.0`
+- Compose Hot Reload `1.2.0` for live Desktop JVM UI validation through MCP
 - Material 3 `1.11.0-alpha07`
-- Android Gradle Plugin `9.3.0-rc01`
+- Android Gradle Plugin `9.3.2`
 - Android min SDK `24`
 - Koin `4.2.2`
-- Koog `1.0.0`
-- AboutLibraries `15.0.0`
-- ML Kit Prompt API `1.0.0-beta2`
-- Ktor BOM `3.5.0`
+- Koog `1.2.0`
+- AboutLibraries `15.1.1`
+- ML Kit Prompt API `1.0.0-beta4`
+- Ktor BOM `3.5.2`
 - SQLDelight `2.3.2`
 - Multiplatform Settings `1.3.0`
 - MaterialThemePrefs `1.0.0`
@@ -129,6 +130,12 @@ Desktop run:
 
 ```bash
 ./gradlew :app:desktopApp:run
+```
+
+Desktop run with Compose Hot Reload:
+
+```bash
+./gradlew :app:desktopApp:hotRun
 ```
 
 Web/Wasm development build:
@@ -209,6 +216,7 @@ Broad platform smoke check:
 - Keep all Compose resources in `:core:ui`. Import `com.softartdev.kvace.core.ui.resources.*` and call `stringResource(Res.string...)` or `painterResource(Res.drawable...)` directly.
 - Add previews for stateless screen overloads; use a preview parameter provider for larger sample states.
 - Android CLI screenshot previews live under `app/shared/src/androidMain/kotlin/com/softartdev/kvace/preview`. Preview functions there must call the original feature composables only; sample state belongs in adjacent `PreviewParameterProvider` files.
+- Agents must visually validate UI changes. Use Android CLI screenshot previews for isolated composables and Compose Hot Reload MCP for the live Desktop JVM app, its interactions, navigation, window layout, and cross-screen state. The full agent workflow is in [Testing](docs/testing.md#live-desktop-ui-validation-with-compose-hot-reload-mcp).
 - Kermit log messages should not repeat the `Logger.withTag(...)` tag in message text.
 - Do not add the deprecated Material Icons dependency. Add Google Fonts Material Symbols as XML vectors under `:core:ui/src/commonMain/composeResources/drawable` and use them with direct `painterResource(Res.drawable...)`.
 
