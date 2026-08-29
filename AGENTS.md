@@ -66,7 +66,7 @@ Each feature (`chat`, `agent`, `settings`) is split into four modules: `domain`,
 | Concern | Library |
 |---|---|
 | Language | Kotlin 2.4.10 |
-| UI | Compose Multiplatform 1.12.0 + Material 3 |
+| UI | Compose Multiplatform 1.12.0 + Compose Material3 1.9.0 (stable) |
 | Navigation | Navigation Compose 2.9.2 with `@Serializable` typed routes |
 | DI | Koin 4.2.2 Safe DSL (`singleOf`, `factoryOf`, `viewModelOf`) |
 | HTTP | Ktor 3.5.2 (CIO engine on Android) |

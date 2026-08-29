@@ -2,7 +2,6 @@
     ExperimentalFoundationApi::class,
     ExperimentalMaterial3AdaptiveApi::class,
     ExperimentalMaterial3Api::class,
-    ExperimentalMaterial3ExpressiveApi::class,
 )
 @file:Suppress("DEPRECATION")
 
@@ -11,16 +10,18 @@ package com.softartdev.kvace.feature.chat.ui
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.requiredWidth
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -37,7 +38,6 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -46,13 +46,11 @@ import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SliderDefaults
-import androidx.compose.material3.SliderState
+import androidx.compose.material3.Slider
 import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.VerticalSlider
 import androidx.compose.material3.adaptive.ExperimentalMaterial3AdaptiveApi
 import androidx.compose.material3.adaptive.layout.ListDetailPaneScaffold
 import androidx.compose.material3.adaptive.layout.ListDetailPaneScaffoldRole
@@ -73,6 +71,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.key.Key
@@ -89,7 +88,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.tooling.preview.PreviewParameter
-import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import com.softartdev.kvace.core.ui.KvaceVerticalPaneExpansionDragHandle
 import com.softartdev.kvace.feature.chat.domain.ChatMessage
@@ -616,44 +614,26 @@ private fun ChatMessageListScrollSlider(
 ) {
     if (!canScroll) return
 
-    val interactionSource = remember { MutableInteractionSource() }
     val scrollPositionContentDescription = stringResource(
         Res.string.chat_scroll_position_content_description,
     )
-    val sliderState = remember { SliderState(value = progress) }
-    sliderState.onValueChange = { value ->
-        sliderState.value = value
-        onProgressChange(value)
-    }
-    sliderState.onValueChangeFinished = onProgressChangeFinished
-    LaunchedEffect(progress, sliderState.isDragging) {
-        if (!sliderState.isDragging) {
-            sliderState.value = progress
-        }
-    }
-    VerticalSlider(
+    BoxWithConstraints(
         modifier = modifier
             .fillMaxHeight()
             .width(24.dp)
             .semantics { contentDescription = scrollPositionContentDescription },
-        state = sliderState,
-        interactionSource = interactionSource,
-        thumb = { state ->
-            SliderDefaults.Thumb(
-                interactionSource = interactionSource,
-                sliderState = state,
-                thumbSize = DpSize(14.dp, 14.dp),
-            )
-        },
-        track = { sliderState ->
-            SliderDefaults.Track(
-                modifier = Modifier.width(4.dp),
-                sliderState = sliderState,
-                drawStopIndicator = null,
-                thumbTrackGapSize = 0.dp,
-            )
-        },
-    )
+        contentAlignment = Alignment.Center,
+    ) {
+        Slider(
+            value = progress,
+            onValueChange = onProgressChange,
+            onValueChangeFinished = onProgressChangeFinished,
+            modifier = Modifier
+                .requiredWidth(maxHeight)
+                .height(24.dp)
+                .rotate(90f),
+        )
+    }
 }
 
 private suspend fun LazyListState.scrollToProgress(

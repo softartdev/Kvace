@@ -22,11 +22,11 @@ This roadmap starts from the current KMP + Compose architecture after enabling p
 
 ## Phase 1: Stabilize The Foundation
 
-- Keep feature modules buildable across Android, iOS, Desktop JVM, and Wasm.
-- Add focused tests for `AgentConfigViewModel` provider selection and `OllamaEndpointSettingsViewModel` endpoint/model transitions.
-- Add fake `AgentConnectionTester` and `AgentModelCatalog` coverage for success, failure, invalid host, invalid port, and model selection paths.
-- Clean up preview coverage for Settings, Providers, and Workspace states.
-- Keep preference persistence backed by platform-specific Multiplatform Settings factories, including browser `StorageSettings` for Wasm.
+- [x] Keep feature modules buildable across Android, iOS, Desktop JVM, and Wasm.
+- [x] Add focused tests for `AgentConfigViewModel` provider selection and `OllamaEndpointSettingsViewModel` endpoint/model transitions.
+- [x] Add fake `AgentConnectionTester` and `AgentModelCatalog` coverage for success, failure, invalid host, invalid port, and model selection paths.
+- [x] Clean up preview coverage for Settings, Providers, and Workspace states.
+- [x] Keep preference persistence backed by platform-specific Multiplatform Settings factories, including browser `StorageSettings` for Wasm.
 
 Validation gate:
 
@@ -64,11 +64,12 @@ Validation gate:
 
 ## Phase 4: Chat Workspace
 
-- Persist conversations and messages. Partially implemented with local SQLDelight chat history.
-- Add conversation list, rename/delete actions, and empty/error states. Conversation list, empty states, rename/delete, and first-message auto-title are implemented.
+- [x] Persist conversations and messages with local SQLDelight chat history.
+- [x] Add conversation list, rename/delete actions, and empty/error states. Conversation list, empty states, rename/delete, and first-message auto-title are implemented.
 - Support provider/model selection per conversation.
 - Add markdown/code rendering only after basic persistence and execution paths are reliable.
-- Add cancellation and retry for in-flight agent responses. Stop generation is implemented; retry is still pending.
+- [x] Add cancellation for in-flight agent responses. Stop generation is implemented.
+- Add retry for failed agent responses.
 
 ## Phase 5: Platform-Specific Capabilities
 

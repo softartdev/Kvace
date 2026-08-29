@@ -4,6 +4,7 @@ config.performance = {
 };
 
 config.ignoreWarnings = [
+    ...(config.ignoreWarnings || []),
     {
         message: /Critical dependency: the request of a dependency is an expression/,
         module: /Kvace-app-webApp\.import-object\.mjs$/,
