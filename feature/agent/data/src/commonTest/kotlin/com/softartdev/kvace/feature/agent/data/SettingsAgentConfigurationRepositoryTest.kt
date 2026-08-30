@@ -15,6 +15,85 @@ import kotlin.test.assertTrue
 class SettingsAgentConfigurationRepositoryTest {
 
     @Test
+    fun legacyOllamaConfigurationRequiresCatalogRevalidation() {
+        val settingsFactory = InMemoryPersistentSettingsFactory()
+        settingsFactory.agentSettings().apply {
+            putString("ollama_endpoint", "http://127.0.0.1:11434")
+            putString("ollama_model", "qwen3.5:0.8b")
+            putBoolean("ollama_configured", true)
+        }
+
+        val provider = createRepository(settingsFactory).ollamaProvider()
+
+        assertFalse(provider.isConfigured)
+    }
+
+    @Test
+    fun restoresCatalogValidatedOllamaConfiguration() {
+        val settingsFactory = InMemoryPersistentSettingsFactory()
+        settingsFactory.agentSettings().apply {
+            putString("ollama_endpoint", "http://127.0.0.1:11434")
+            putString("ollama_model", "mistral:latest")
+            putBoolean("ollama_configured", true)
+            putString("ollama_validated_endpoint", "http://127.0.0.1:11434")
+            putString("ollama_validated_model", "mistral:latest")
+        }
+
+        val provider = createRepository(settingsFactory).ollamaProvider()
+
+        assertTrue(provider.isConfigured)
+    }
+
+    @Test
+    fun configuredOllamaWritePersistsValidationMarkers() = runTest {
+        val settingsFactory = InMemoryPersistentSettingsFactory()
+        val repository = createRepository(settingsFactory)
+        val configured = repository.ollamaProvider().copy(
+            endpoint = "http://127.0.0.1:11434",
+            modelName = "mistral:latest",
+            isConfigured = true,
+        )
+
+        repository.updateProvider(configured)
+
+        val restored = createRepository(settingsFactory).ollamaProvider()
+        assertEquals(configured, restored)
+        assertTrue(restored.isConfigured)
+    }
+
+    @Test
+    fun rejectsOllamaConfigurationWhenValidationStampDoesNotMatch() {
+        val settingsFactory = InMemoryPersistentSettingsFactory()
+        settingsFactory.agentSettings().apply {
+            putString("ollama_endpoint", "http://127.0.0.1:11434")
+            putString("ollama_model", "mistral:latest")
+            putBoolean("ollama_configured", true)
+            putString("ollama_validated_endpoint", "http://other-host:11434")
+            putString("ollama_validated_model", "llama3.2:latest")
+        }
+
+        val provider = createRepository(settingsFactory).ollamaProvider()
+
+        assertFalse(provider.isConfigured)
+    }
+
+    @Test
+    fun rejectsStampedOllamaConfigurationWithInvalidEndpoint() {
+        val settingsFactory = InMemoryPersistentSettingsFactory()
+        settingsFactory.agentSettings().apply {
+            putString("ollama_endpoint", "http://bad host:11434")
+            putString("ollama_model", "mistral:latest")
+            putBoolean("ollama_configured", true)
+            putString("ollama_validated_endpoint", "http://bad host:11434")
+            putString("ollama_validated_model", "mistral:latest")
+        }
+
+        val provider = createRepository(settingsFactory).ollamaProvider()
+
+        assertFalse(provider.isConfigured)
+    }
+
+    @Test
     fun includesAvailableOnDeviceProvider() {
         val repository = createRepository(
             onDeviceModelProvider = FakeOnDeviceModelProvider(
@@ -76,6 +155,7 @@ class SettingsAgentConfigurationRepositoryTest {
     fun failedProviderWriteDoesNotPublishInMemoryState() = runTest {
         val repository = SettingsAgentConfigurationRepository(
             ollamaEndpointProvider = StaticOllamaEndpointProvider(LOOPBACK_HOST),
+            ollamaEndpointValidator = KtorOllamaEndpointValidator(),
             onDeviceModelProvider = FakeOnDeviceModelProvider(),
             settingsFactory = FailingPersistentSettingsFactory(),
         )
@@ -93,9 +173,16 @@ class SettingsAgentConfigurationRepositoryTest {
         onDeviceModelProvider: OnDeviceModelProvider = FakeOnDeviceModelProvider(),
     ) = SettingsAgentConfigurationRepository(
         ollamaEndpointProvider = StaticOllamaEndpointProvider(LOOPBACK_HOST),
+        ollamaEndpointValidator = KtorOllamaEndpointValidator(),
         onDeviceModelProvider = onDeviceModelProvider,
         settingsFactory = settingsFactory,
     )
+
+    private fun InMemoryPersistentSettingsFactory.agentSettings(): PersistentSettings =
+        create("kvace_agent_configuration")
+
+    private fun SettingsAgentConfigurationRepository.ollamaProvider() =
+        providers.value.first { it.id == AgentProviderId.Ollama }
 }
 
 private class FailingPersistentSettingsFactory : PersistentSettingsFactory {

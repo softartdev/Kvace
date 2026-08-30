@@ -6,6 +6,7 @@ import co.touchlab.kermit.Logger
 import com.softartdev.kvace.core.domain.util.CoroutineDispatchers
 import com.softartdev.kvace.feature.agent.domain.AgentConfigurationRepository
 import com.softartdev.kvace.feature.agent.domain.AgentProviderId
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -24,6 +25,8 @@ class AgentConfigViewModel(
         field: MutableStateFlow<AgentConfigUiState> = MutableStateFlow(AgentConfigUiState())
 
     private var isObservingProviders = false
+    private var isOpenAiModelInputInitialized = false
+    private var openAiModelUpdateJob: Job? = null
 
     fun observeProviders() {
         if (isObservingProviders) return
@@ -32,11 +35,21 @@ class AgentConfigViewModel(
         combine(repository.providers, repository.selectedProvider) { providers, selected ->
             providers to selected
         }.onEach { (providers, selected) ->
+            val openAiProvider = providers.firstOrNull { it.id == AgentProviderId.OpenAI }
+            val shouldInitializeOpenAiModel = !isOpenAiModelInputInitialized && openAiProvider != null
             uiState.update { state ->
                 state.copy(
                     providers = providers,
                     selectedProviderId = selected?.id,
+                    openAiModelInput = if (shouldInitializeOpenAiModel) {
+                        openAiProvider.modelName
+                    } else {
+                        state.openAiModelInput
+                    },
                 )
+            }
+            if (shouldInitializeOpenAiModel) {
+                isOpenAiModelInputInitialized = true
             }
         }.launchIn(viewModelScope)
     }
@@ -50,16 +63,32 @@ class AgentConfigViewModel(
 
     fun onAction(action: AgentConfigAction) {
         when (action) {
-            is AgentConfigAction.ProviderModelChanged -> updateProviderModel(action.id, action.modelName)
+            is AgentConfigAction.OpenAiModelChanged -> updateOpenAiModel(action.modelName)
             is AgentConfigAction.ProviderSelected -> selectProvider(action.id)
         }
     }
 
-    private fun updateProviderModel(id: AgentProviderId, modelName: String) {
-        viewModelScope.launch(dispatchers.io) {
-            val provider = repository.providers.value.firstOrNull { it.id == id } ?: return@launch
-            repository.updateProvider(provider.copy(modelName = modelName))
-            logger.i { "Updated provider model: $id" }
+    private fun updateOpenAiModel(modelName: String) {
+        val trimmedModelName = modelName.trim()
+        uiState.update {
+            it.copy(
+                openAiModelInput = modelName,
+                openAiModelValidationError = if (trimmedModelName.isEmpty()) {
+                    OpenAiModelValidationError.Required
+                } else {
+                    null
+                },
+            )
+        }
+        openAiModelUpdateJob?.cancel()
+        if (trimmedModelName.isEmpty()) return
+
+        openAiModelUpdateJob = viewModelScope.launch(dispatchers.io) {
+            val provider = repository.providers.value
+                .firstOrNull { it.id == AgentProviderId.OpenAI }
+                ?: return@launch
+            repository.updateProvider(provider.copy(modelName = trimmedModelName))
+            logger.i { "Updated provider model: ${AgentProviderId.OpenAI}" }
         }
     }
 }

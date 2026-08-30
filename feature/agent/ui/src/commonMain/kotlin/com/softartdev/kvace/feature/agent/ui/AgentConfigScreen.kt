@@ -70,6 +70,7 @@ import com.softartdev.kvace.core.ui.resources.agents_ollama_models_empty
 import com.softartdev.kvace.core.ui.resources.agents_ollama_models_failed
 import com.softartdev.kvace.core.ui.resources.agents_ollama_models_failed_detail
 import com.softartdev.kvace.core.ui.resources.agents_ollama_models_loaded
+import com.softartdev.kvace.core.ui.resources.agents_ollama_model_selection_required
 import com.softartdev.kvace.core.ui.resources.agents_ollama_port_label
 import com.softartdev.kvace.core.ui.resources.agents_ollama_test_connection
 import com.softartdev.kvace.core.ui.resources.agents_ollama_testing_connection
@@ -77,6 +78,7 @@ import com.softartdev.kvace.core.ui.resources.agents_on_device_available
 import com.softartdev.kvace.core.ui.resources.agents_on_device_unavailable
 import com.softartdev.kvace.core.ui.resources.agents_openai_credentials_message
 import com.softartdev.kvace.core.ui.resources.agents_openai_credentials_title
+import com.softartdev.kvace.core.ui.resources.agents_openai_model_required
 import com.softartdev.kvace.core.ui.resources.agents_provider_placeholder_message
 import com.softartdev.kvace.core.ui.resources.agents_provider_placeholder_title
 import com.softartdev.kvace.core.ui.resources.agents_selected_provider_content_description
@@ -96,6 +98,7 @@ import com.softartdev.kvace.feature.agent.presentation.OllamaEndpointSettingsAct
 import com.softartdev.kvace.feature.agent.presentation.OllamaEndpointSettingsUiState
 import com.softartdev.kvace.feature.agent.presentation.OllamaEndpointSettingsViewModel
 import com.softartdev.kvace.feature.agent.presentation.OllamaModelsStatus
+import com.softartdev.kvace.feature.agent.presentation.OpenAiModelValidationError
 import com.softartdev.theme.material3.PreferableMaterialTheme
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.StringResource
@@ -176,6 +179,8 @@ fun AgentConfigScreen(
             ProviderDetailPane(
                 provider = state.selectedProvider,
                 ollamaState = ollamaState,
+                openAiModelInput = state.openAiModelInput,
+                openAiModelValidationError = state.openAiModelValidationError,
                 onAction = onAction,
                 onOllamaAction = onOllamaAction,
                 onBackClick = when {
@@ -230,6 +235,8 @@ private fun ProviderDetailPane(
     modifier: Modifier = Modifier,
     provider: AgentProviderConfig?,
     ollamaState: OllamaEndpointSettingsUiState,
+    openAiModelInput: String,
+    openAiModelValidationError: OpenAiModelValidationError?,
     onAction: (AgentConfigAction) -> Unit,
     onOllamaAction: (OllamaEndpointSettingsAction) -> Unit,
     onBackClick: (() -> Unit)?,
@@ -278,9 +285,10 @@ private fun ProviderDetailPane(
                     )
                     AgentProviderId.OnDevice -> OnDeviceProviderDetail(provider)
                     AgentProviderId.OpenAI -> OpenAiProviderDetail(
-                        provider = provider,
+                        modelInput = openAiModelInput,
+                        validationError = openAiModelValidationError,
                         onModelChanged = { modelName ->
-                            onAction(AgentConfigAction.ProviderModelChanged(provider.id, modelName))
+                            onAction(AgentConfigAction.OpenAiModelChanged(modelName))
                         },
                     )
                 }
@@ -391,7 +399,11 @@ private fun OnDeviceProviderDetail(provider: AgentProviderConfig) {
 }
 
 @Composable
-private fun OpenAiProviderDetail(provider: AgentProviderConfig, onModelChanged: (String) -> Unit) {
+private fun OpenAiProviderDetail(
+    modelInput: String,
+    validationError: OpenAiModelValidationError?,
+    onModelChanged: (String) -> Unit,
+) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -399,10 +411,24 @@ private fun OpenAiProviderDetail(provider: AgentProviderConfig, onModelChanged: 
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         OutlinedTextField(
-            modifier = Modifier.fillMaxWidth(),
-            value = provider.modelName,
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag("openai_model_field"),
+            value = modelInput,
             onValueChange = onModelChanged,
             label = { Text(stringResource(Res.string.agents_ollama_model_label)) },
+            supportingText = when (validationError) {
+                OpenAiModelValidationError.Required -> {
+                    {
+                        Text(
+                            modifier = Modifier.testTag("openai_model_error"),
+                            text = stringResource(Res.string.agents_openai_model_required),
+                        )
+                    }
+                }
+                null -> null
+            },
+            isError = validationError != null,
             singleLine = true,
         )
         Text(
@@ -444,6 +470,10 @@ fun OllamaEndpointSettings(
 ) {
     val isTesting = state.connectionStatus == OllamaConnectionStatus.Testing
     val isLoadingModels = state.modelsStatus == OllamaModelsStatus.Loading
+    val isBusy = isTesting || isLoadingModels
+    val isHostInvalid = state.connectionStatus == OllamaConnectionStatus.InvalidHost
+    val isPortInvalid = state.connectionStatus == OllamaConnectionStatus.InvalidPort
+    val isModelSelectionRequired = state.modelsStatus == OllamaModelsStatus.SelectionRequired
     val connectionButtonLabelRes: StringResource = when {
         isTesting -> Res.string.agents_ollama_testing_connection
         else -> Res.string.agents_ollama_test_connection
@@ -470,8 +500,19 @@ fun OllamaEndpointSettings(
             value = state.hostInput,
             onValueChange = { onAction(OllamaEndpointSettingsAction.HostChanged(it)) },
             label = { Text(stringResource(Res.string.agents_ollama_host_label)) },
+            supportingText = if (isHostInvalid) {
+                {
+                    Text(
+                        modifier = Modifier.testTag("ollama_host_error"),
+                        text = stringResource(Res.string.agents_ollama_invalid_host),
+                    )
+                }
+            } else {
+                null
+            },
+            isError = isHostInvalid,
             singleLine = true,
-            enabled = !isTesting,
+            enabled = !isBusy,
         )
         OutlinedTextField(
             modifier = Modifier
@@ -480,23 +521,46 @@ fun OllamaEndpointSettings(
             value = state.portInput,
             onValueChange = { onAction(OllamaEndpointSettingsAction.PortChanged(it)) },
             label = { Text(stringResource(Res.string.agents_ollama_port_label)) },
+            supportingText = if (isPortInvalid) {
+                {
+                    Text(
+                        modifier = Modifier.testTag("ollama_port_error"),
+                        text = stringResource(Res.string.agents_ollama_invalid_port),
+                    )
+                }
+            } else {
+                null
+            },
+            isError = isPortInvalid,
             singleLine = true,
-            enabled = !isTesting,
+            enabled = !isBusy,
         )
         OutlinedTextField(
             modifier = Modifier
                 .fillMaxWidth()
                 .testTag("ollama_model_field"),
             value = state.modelInput,
-            onValueChange = { onAction(OllamaEndpointSettingsAction.ModelChanged(it)) },
+            onValueChange = {},
             label = { Text(stringResource(Res.string.agents_ollama_model_label)) },
+            supportingText = if (isModelSelectionRequired) {
+                {
+                    Text(
+                        modifier = Modifier.testTag("ollama_model_error"),
+                        text = stringResource(Res.string.agents_ollama_model_selection_required),
+                    )
+                }
+            } else {
+                null
+            },
+            isError = isModelSelectionRequired,
+            readOnly = true,
             singleLine = true,
-            enabled = !isTesting && !isLoadingModels,
+            enabled = !isBusy,
         )
         Button(
             modifier = Modifier.testTag("ollama_test_connection_button"),
             onClick = { onAction(OllamaEndpointSettingsAction.TestConnection) },
-            enabled = !isTesting && !isLoadingModels,
+            enabled = !isBusy,
         ) {
             when {
                 isTesting -> CircularProgressIndicator(
@@ -520,7 +584,7 @@ fun OllamaEndpointSettings(
         OutlinedButton(
             modifier = Modifier.testTag("ollama_load_models_button"),
             onClick = { onAction(OllamaEndpointSettingsAction.LoadModels) },
-            enabled = !isTesting && !isLoadingModels,
+            enabled = !isBusy,
         ) {
             when {
                 isLoadingModels -> CircularProgressIndicator(
@@ -575,16 +639,8 @@ private fun OllamaConnectionStatusText(
         text = stringResource(Res.string.agents_ollama_connection_success),
         color = MaterialTheme.colorScheme.primary,
     )
-    OllamaConnectionStatus.InvalidHost -> Text(
-        modifier = modifier,
-        text = stringResource(Res.string.agents_ollama_invalid_host),
-        color = MaterialTheme.colorScheme.error,
-    )
-    OllamaConnectionStatus.InvalidPort -> Text(
-        modifier = modifier,
-        text = stringResource(Res.string.agents_ollama_invalid_port),
-        color = MaterialTheme.colorScheme.error,
-    )
+    OllamaConnectionStatus.InvalidHost,
+    OllamaConnectionStatus.InvalidPort -> Unit
     is OllamaConnectionStatus.Failure -> Text(
         modifier = modifier,
         text = status.message?.let {
@@ -598,7 +654,8 @@ private fun OllamaConnectionStatusText(
 private fun OllamaModelsStatusText(modifier: Modifier = Modifier, status: OllamaModelsStatus) {
     when (status) {
         OllamaModelsStatus.Idle,
-        OllamaModelsStatus.Loading -> Unit
+        OllamaModelsStatus.Loading,
+        OllamaModelsStatus.SelectionRequired -> Unit
         OllamaModelsStatus.Loaded -> Text(
             modifier = modifier,
             text = stringResource(Res.string.agents_ollama_models_loaded),

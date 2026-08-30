@@ -8,7 +8,8 @@ This roadmap starts from the current KMP + Compose architecture after enabling p
 - Shared Compose root with adaptive navigation for Workspace, Providers, and Settings.
 - Koin-based composition root with platform modules for Android, iOS, Desktop JVM, and Wasm.
 - Workspace feature with SQLDelight-backed conversation history, adaptive master-detail layout, stop generation, message actions, and single-turn Ollama execution, plus on-device execution where platform APIs are available.
-- Providers feature with adaptive provider configuration, provider domain contracts, persisted provider/model configuration, and Koog isolated in data.
+- Providers feature with adaptive provider configuration, provider-specific endpoint/model validation, persisted
+  validation markers, and Koog isolated in data.
 - Settings feature with MaterialThemePrefs theme switching, Harness prompt editing, and About information.
 - Ollama host/port connection testing and server model loading through data-layer clients.
 - Ollama `shell_command` tool calling for one read-only allowlisted command per send. Desktop JVM executes through
@@ -48,7 +49,9 @@ Validation gate:
 ## Phase 2: Provider Configuration Depth
 
 - Add provider editing for model names beyond the current defaults. Basic model editing and Ollama model loading are implemented.
-- Add provider-specific validation for model names and endpoints.
+- [x] Add provider-specific validation for model names and endpoints. Ollama endpoints are normalized and models must
+  come from the server catalog; OpenAI accepts any non-blank trimmed model ID while remaining unconfigured until
+  secure credentials are implemented.
 - Add secure API-key storage design for OpenAI and other hosted providers.
 - Keep secrets out of common UI and avoid browser-side secret storage for real hosted-provider execution.
 - Add import/export or reset behavior only after the persistence model is stable.

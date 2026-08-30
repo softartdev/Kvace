@@ -12,7 +12,6 @@ data class OllamaEndpointSettingsUiState(
 sealed interface OllamaEndpointSettingsAction {
     data class HostChanged(val host: String) : OllamaEndpointSettingsAction
     data class PortChanged(val port: String) : OllamaEndpointSettingsAction
-    data class ModelChanged(val modelName: String) : OllamaEndpointSettingsAction
     data class ModelSelected(val modelName: String) : OllamaEndpointSettingsAction
     data object TestConnection : OllamaEndpointSettingsAction
     data object LoadModels : OllamaEndpointSettingsAction
@@ -31,6 +30,7 @@ sealed interface OllamaModelsStatus {
     data object Idle : OllamaModelsStatus
     data object Loading : OllamaModelsStatus
     data object Loaded : OllamaModelsStatus
+    data object SelectionRequired : OllamaModelsStatus
     data object Empty : OllamaModelsStatus
     data class Failure(val message: String?) : OllamaModelsStatus
 }

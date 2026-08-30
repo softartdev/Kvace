@@ -9,6 +9,7 @@ import com.softartdev.kvace.feature.agent.domain.AgentConnectionTester
 import com.softartdev.kvace.feature.agent.domain.AgentModelCatalog
 import com.softartdev.kvace.feature.agent.domain.AgentRuntime
 import com.softartdev.kvace.feature.agent.domain.HarnessConfigurationRepository
+import com.softartdev.kvace.feature.agent.domain.OllamaEndpointValidator
 import com.softartdev.kvace.feature.agent.domain.ShellCommandExecutor
 import com.softartdev.kvace.feature.agent.data.OnDeviceModelProvider
 import com.softartdev.kvace.feature.agent.presentation.AgentConfigViewModel
@@ -53,6 +54,7 @@ class KvaceModuleTest {
         assertNotNull(koin.get<HarnessConfigurationRepository>())
         assertNotNull(koin.get<AgentConnectionTester>())
         assertNotNull(koin.get<AgentModelCatalog>())
+        assertNotNull(koin.get<OllamaEndpointValidator>())
         assertNotNull(koin.get<AgentRuntime>())
         assertNotNull(koin.get<OnDeviceModelProvider>())
         assertNotNull(koin.get<ShellCommandExecutor>())

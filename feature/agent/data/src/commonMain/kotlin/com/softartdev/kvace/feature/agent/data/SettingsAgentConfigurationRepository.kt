@@ -5,11 +5,13 @@ import com.softartdev.kvace.core.data.settings.PersistentSettingsFactory
 import com.softartdev.kvace.feature.agent.domain.AgentConfigurationRepository
 import com.softartdev.kvace.feature.agent.domain.AgentProviderConfig
 import com.softartdev.kvace.feature.agent.domain.AgentProviderId
+import com.softartdev.kvace.feature.agent.domain.OllamaEndpointValidator
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
 class SettingsAgentConfigurationRepository(
     private val ollamaEndpointProvider: OllamaEndpointProvider,
+    private val ollamaEndpointValidator: OllamaEndpointValidator,
     private val onDeviceModelProvider: OnDeviceModelProvider,
     settingsFactory: PersistentSettingsFactory,
 ) : AgentConfigurationRepository {
@@ -38,24 +40,33 @@ class SettingsAgentConfigurationRepository(
         }
     }
 
-    private fun createInitialProviders(): List<AgentProviderConfig> = listOf(
-        AgentProviderConfig(
-            id = AgentProviderId.Ollama,
-            modelName = settings.getStringOrNull(KEY_OLLAMA_MODEL) ?: DEFAULT_OLLAMA_MODEL,
-            endpoint = settings.getStringOrNull(KEY_OLLAMA_ENDPOINT) ?: ollamaEndpointProvider.defaultEndpoint(),
-            isConfigured = settings.getBoolean(KEY_OLLAMA_CONFIGURED, defaultValue = true),
-        ),
-        AgentProviderConfig(
-            id = AgentProviderId.OnDevice,
-            modelName = onDeviceModelProvider.modelName,
-            isConfigured = onDeviceModelProvider.isAvailable,
-        ),
-        AgentProviderConfig(
-            id = AgentProviderId.OpenAI,
-            modelName = settings.getStringOrNull(KEY_OPENAI_MODEL) ?: DEFAULT_OPENAI_MODEL,
-            isConfigured = settings.getBoolean(KEY_OPENAI_CONFIGURED, defaultValue = false),
-        ),
-    )
+    private fun createInitialProviders(): List<AgentProviderConfig> {
+        val ollamaEndpoint = settings.getStringOrNull(KEY_OLLAMA_ENDPOINT) ?: ollamaEndpointProvider.defaultEndpoint()
+        val ollamaModel = settings.getStringOrNull(KEY_OLLAMA_MODEL) ?: DEFAULT_OLLAMA_MODEL
+        val validatedEndpoint = ollamaEndpointValidator.parse(ollamaEndpoint)?.value
+        val isOllamaConfigured = settings.getBoolean(KEY_OLLAMA_CONFIGURED, defaultValue = false) &&
+            validatedEndpoint == settings.getStringOrNull(KEY_OLLAMA_VALIDATED_ENDPOINT) &&
+            ollamaModel == settings.getStringOrNull(KEY_OLLAMA_VALIDATED_MODEL)
+
+        return listOf(
+            AgentProviderConfig(
+                id = AgentProviderId.Ollama,
+                modelName = ollamaModel,
+                endpoint = ollamaEndpoint,
+                isConfigured = isOllamaConfigured,
+            ),
+            AgentProviderConfig(
+                id = AgentProviderId.OnDevice,
+                modelName = onDeviceModelProvider.modelName,
+                isConfigured = onDeviceModelProvider.isAvailable,
+            ),
+            AgentProviderConfig(
+                id = AgentProviderId.OpenAI,
+                modelName = settings.getStringOrNull(KEY_OPENAI_MODEL) ?: DEFAULT_OPENAI_MODEL,
+                isConfigured = settings.getBoolean(KEY_OPENAI_CONFIGURED, defaultValue = false),
+            ),
+        )
+    }
 
     private fun initialSelectedProvider(providers: List<AgentProviderConfig>): AgentProviderConfig {
         val savedProviderId: AgentProviderId = settings.getStringOrNull(KEY_SELECTED_PROVIDER_ID)
@@ -68,9 +79,22 @@ class SettingsAgentConfigurationRepository(
 
     private fun saveProvider(config: AgentProviderConfig) = when (config.id) {
         AgentProviderId.Ollama -> {
+            val endpoint = config.endpoint
+            val validatedEndpoint = endpoint?.let(ollamaEndpointValidator::parse)
+            require(!config.isConfigured || validatedEndpoint?.value == endpoint) {
+                "Configured Ollama endpoint must be valid and normalized."
+            }
+            require(!config.isConfigured || config.modelName.isNotBlank()) {
+                "Configured Ollama model must not be blank."
+            }
             config.endpoint?.let { settings.putString(KEY_OLLAMA_ENDPOINT, it) }
             settings.putString(KEY_OLLAMA_MODEL, config.modelName)
             settings.putBoolean(KEY_OLLAMA_CONFIGURED, config.isConfigured)
+            if (config.isConfigured) {
+                settings.putString(KEY_OLLAMA_VALIDATED_ENDPOINT, endpoint.orEmpty())
+                settings.putString(KEY_OLLAMA_VALIDATED_MODEL, config.modelName)
+            }
+            Unit
         }
         AgentProviderId.OpenAI -> {
             settings.putString(KEY_OPENAI_MODEL, config.modelName)
@@ -86,6 +110,8 @@ class SettingsAgentConfigurationRepository(
         const val KEY_OLLAMA_ENDPOINT = "ollama_endpoint"
         const val KEY_OLLAMA_MODEL = "ollama_model"
         const val KEY_OLLAMA_CONFIGURED = "ollama_configured"
+        const val KEY_OLLAMA_VALIDATED_ENDPOINT = "ollama_validated_endpoint"
+        const val KEY_OLLAMA_VALIDATED_MODEL = "ollama_validated_model"
         const val KEY_OPENAI_MODEL = "openai_model"
         const val KEY_OPENAI_CONFIGURED = "openai_configured"
         const val DEFAULT_OLLAMA_MODEL = "qwen3.5:0.8b"

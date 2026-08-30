@@ -8,10 +8,13 @@ import com.softartdev.kvace.feature.agent.domain.AgentModelCatalog
 import com.softartdev.kvace.feature.agent.domain.AgentModelListResult
 import com.softartdev.kvace.feature.agent.domain.AgentProviderConfig
 import com.softartdev.kvace.feature.agent.domain.AgentProviderId
+import com.softartdev.kvace.feature.agent.domain.OllamaEndpointValidationResult
+import com.softartdev.kvace.feature.agent.domain.OllamaEndpointValidator
+import com.softartdev.kvace.feature.agent.domain.ValidatedOllamaEndpoint
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.TestDispatcher
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
@@ -21,6 +24,7 @@ import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -47,118 +51,193 @@ class OllamaEndpointSettingsViewModelTest {
 
         assertEquals("127.0.0.1", viewModel.uiState.value.hostInput)
         assertEquals("11434", viewModel.uiState.value.portInput)
-        assertEquals("qwen3.5:0.8b", viewModel.uiState.value.modelInput)
+        assertEquals(DEFAULT_MODEL, viewModel.uiState.value.modelInput)
     }
 
     @Test
-    fun rejectsBlankHost() = runTest(dispatcher) {
-        val viewModel = createViewModel()
+    fun rejectsInvalidHostWithoutPersistenceOrNetworkCalls() = runTest(dispatcher) {
+        val repository = FakeOllamaConfigurationRepository()
+        val tester = FakeAgentConnectionTester()
+        val modelCatalog = FakeAgentModelCatalog()
+        val viewModel = createViewModel(repository, tester, modelCatalog)
 
-        viewModel.onAction(OllamaEndpointSettingsAction.HostChanged(" "))
+        viewModel.onAction(OllamaEndpointSettingsAction.HostChanged("http://localhost"))
+        viewModel.onAction(OllamaEndpointSettingsAction.PortChanged("11434"))
         viewModel.onAction(OllamaEndpointSettingsAction.TestConnection)
 
         assertEquals(OllamaConnectionStatus.InvalidHost, viewModel.uiState.value.connectionStatus)
+        assertEquals(0, repository.updateCount)
+        assertEquals(0, tester.callCount)
+        assertEquals(0, modelCatalog.callCount)
     }
 
     @Test
-    fun rejectsInvalidPort() = runTest(dispatcher) {
-        val viewModel = createViewModel()
+    fun rejectsInvalidPortWithoutLoadingModels() = runTest(dispatcher) {
+        val modelCatalog = FakeAgentModelCatalog()
+        val viewModel = createViewModel(modelCatalog = modelCatalog)
 
         viewModel.onAction(OllamaEndpointSettingsAction.HostChanged("127.0.0.1"))
         viewModel.onAction(OllamaEndpointSettingsAction.PortChanged("70000"))
-        viewModel.onAction(OllamaEndpointSettingsAction.TestConnection)
+        viewModel.onAction(OllamaEndpointSettingsAction.LoadModels)
 
         assertEquals(OllamaConnectionStatus.InvalidPort, viewModel.uiState.value.connectionStatus)
+        assertEquals(0, modelCatalog.callCount)
     }
 
     @Test
-    fun successfulConnectionPersistsConfiguredEndpoint() = runTest(dispatcher) {
+    fun successfulConnectionConfiguresCurrentModelOnlyAfterCatalogConfirmation() = runTest(dispatcher) {
         val repository = FakeOllamaConfigurationRepository()
         val tester = FakeAgentConnectionTester(AgentConnectionTestResult.Success)
-        val viewModel = createViewModel(repository = repository, connectionTester = tester)
+        val modelCatalog = FakeAgentModelCatalog(AgentModelListResult.Success(listOf(DEFAULT_MODEL)))
+        val viewModel = createViewModel(repository, tester, modelCatalog)
 
         viewModel.observeEndpoint()
         viewModel.onAction(OllamaEndpointSettingsAction.HostChanged("10.0.2.2"))
         viewModel.onAction(OllamaEndpointSettingsAction.PortChanged("11434"))
         viewModel.onAction(OllamaEndpointSettingsAction.TestConnection)
 
-        val ollamaConfig = repository.providers.value.first { it.id == AgentProviderId.Ollama }
-        assertEquals("http://10.0.2.2:11434", ollamaConfig.endpoint)
-        assertTrue(ollamaConfig.isConfigured)
+        val config = repository.ollamaProvider()
+        assertEquals("http://10.0.2.2:11434", config.endpoint)
+        assertTrue(config.isConfigured)
         assertEquals(OllamaConnectionStatus.Success, viewModel.uiState.value.connectionStatus)
+        assertEquals(OllamaModelsStatus.Loaded, viewModel.uiState.value.modelsStatus)
+        assertEquals(1, tester.callCount)
+        assertEquals(1, modelCatalog.callCount)
     }
 
     @Test
-    fun failedConnectionKeepsProviderUnconfigured() = runTest(dispatcher) {
+    fun failedConnectionKeepsProviderUnconfiguredWithoutLoadingModels() = runTest(dispatcher) {
         val repository = FakeOllamaConfigurationRepository()
         val tester = FakeAgentConnectionTester(AgentConnectionTestResult.Failure("offline"))
-        val viewModel = createViewModel(repository = repository, connectionTester = tester)
+        val modelCatalog = FakeAgentModelCatalog()
+        val viewModel = createViewModel(repository, tester, modelCatalog)
 
         viewModel.observeEndpoint()
         viewModel.onAction(OllamaEndpointSettingsAction.TestConnection)
 
-        val ollamaConfig = repository.providers.value.first { it.id == AgentProviderId.Ollama }
-        assertEquals(false, ollamaConfig.isConfigured)
+        assertFalse(repository.ollamaProvider().isConfigured)
         assertEquals(OllamaConnectionStatus.Failure("offline"), viewModel.uiState.value.connectionStatus)
+        assertEquals(0, modelCatalog.callCount)
     }
 
     @Test
-    fun modelInputPersistsProviderModel() = runTest(dispatcher) {
+    fun missingSavedModelRequiresExplicitSelectionWithoutAutoSelectingFirst() = runTest(dispatcher) {
         val repository = FakeOllamaConfigurationRepository()
-        val viewModel = createViewModel(repository = repository)
-
-        viewModel.observeEndpoint()
-        viewModel.onAction(OllamaEndpointSettingsAction.ModelChanged("llama3.2:latest"))
-
-        val ollamaConfig = repository.providers.value.first { it.id == AgentProviderId.Ollama }
-        assertEquals("llama3.2:latest", ollamaConfig.modelName)
-        assertEquals("llama3.2:latest", viewModel.uiState.value.modelInput)
-    }
-
-    @Test
-    fun loadModelsAutoSelectsFirstServerModelWhenCurrentModelIsMissing() = runTest(dispatcher) {
-        val repository = FakeOllamaConfigurationRepository()
-        val modelCatalog = FakeAgentModelCatalog(
-            AgentModelListResult.Success(listOf("llama3.2:latest", "mistral:latest")),
-        )
+        val models = listOf("llama3.2:latest", "mistral:latest")
         val viewModel = createViewModel(
             repository = repository,
-            modelCatalog = modelCatalog,
+            modelCatalog = FakeAgentModelCatalog(AgentModelListResult.Success(models)),
         )
 
         viewModel.observeEndpoint()
         viewModel.onAction(OllamaEndpointSettingsAction.LoadModels)
 
-        val ollamaConfig = repository.providers.value.first { it.id == AgentProviderId.Ollama }
-        assertEquals("llama3.2:latest", ollamaConfig.modelName)
-        assertEquals("llama3.2:latest", viewModel.uiState.value.modelInput)
-        assertEquals(listOf("llama3.2:latest", "mistral:latest"), viewModel.uiState.value.availableModels)
+        assertFalse(repository.ollamaProvider().isConfigured)
+        assertEquals("", viewModel.uiState.value.modelInput)
+        assertEquals(models, viewModel.uiState.value.availableModels)
+        assertEquals(OllamaModelsStatus.SelectionRequired, viewModel.uiState.value.modelsStatus)
+    }
+
+    @Test
+    fun selectedCatalogModelPersistsAndConfiguresProvider() = runTest(dispatcher) {
+        val repository = FakeOllamaConfigurationRepository()
+        val models = listOf("llama3.2:latest", "mistral:latest")
+        val viewModel = createViewModel(
+            repository = repository,
+            modelCatalog = FakeAgentModelCatalog(AgentModelListResult.Success(models)),
+        )
+        viewModel.observeEndpoint()
+        viewModel.onAction(OllamaEndpointSettingsAction.LoadModels)
+
+        viewModel.onAction(OllamaEndpointSettingsAction.ModelSelected("mistral:latest"))
+
+        assertEquals("mistral:latest", repository.ollamaProvider().modelName)
+        assertTrue(repository.ollamaProvider().isConfigured)
+        assertEquals("mistral:latest", viewModel.uiState.value.modelInput)
         assertEquals(OllamaModelsStatus.Loaded, viewModel.uiState.value.modelsStatus)
     }
 
     @Test
-    fun selectedServerModelPersistsProviderModel() = runTest(dispatcher) {
+    fun arbitraryModelSelectionOutsideCatalogIsIgnored() = runTest(dispatcher) {
         val repository = FakeOllamaConfigurationRepository()
-        val viewModel = createViewModel(repository = repository)
+        val viewModel = createViewModel(
+            repository = repository,
+            modelCatalog = FakeAgentModelCatalog(
+                AgentModelListResult.Success(listOf("mistral:latest")),
+            ),
+        )
+        viewModel.observeEndpoint()
+        viewModel.onAction(OllamaEndpointSettingsAction.LoadModels)
+        val updateCountAfterLoad = repository.updateCount
+
+        viewModel.onAction(OllamaEndpointSettingsAction.ModelSelected("invented:latest"))
+
+        assertEquals(DEFAULT_MODEL, repository.ollamaProvider().modelName)
+        assertFalse(repository.ollamaProvider().isConfigured)
+        assertEquals(updateCountAfterLoad, repository.updateCount)
+    }
+
+    @Test
+    fun emptyCatalogKeepsProviderUnconfigured() = runTest(dispatcher) {
+        val repository = FakeOllamaConfigurationRepository()
+        val viewModel = createViewModel(
+            repository = repository,
+            modelCatalog = FakeAgentModelCatalog(AgentModelListResult.Success(emptyList())),
+        )
 
         viewModel.observeEndpoint()
-        viewModel.onAction(OllamaEndpointSettingsAction.ModelSelected("mistral:latest"))
+        viewModel.onAction(OllamaEndpointSettingsAction.LoadModels)
 
-        val ollamaConfig = repository.providers.value.first { it.id == AgentProviderId.Ollama }
-        assertEquals("mistral:latest", ollamaConfig.modelName)
-        assertEquals("mistral:latest", viewModel.uiState.value.modelInput)
+        assertFalse(repository.ollamaProvider().isConfigured)
+        assertEquals(OllamaModelsStatus.Empty, viewModel.uiState.value.modelsStatus)
+    }
+
+    @Test
+    fun modelCatalogFailureKeepsProviderUnconfigured() = runTest(dispatcher) {
+        val repository = FakeOllamaConfigurationRepository()
+        val viewModel = createViewModel(
+            repository = repository,
+            modelCatalog = FakeAgentModelCatalog(AgentModelListResult.Failure("unavailable")),
+        )
+
+        viewModel.observeEndpoint()
+        viewModel.onAction(OllamaEndpointSettingsAction.LoadModels)
+
+        assertFalse(repository.ollamaProvider().isConfigured)
+        assertEquals(OllamaModelsStatus.Failure("unavailable"), viewModel.uiState.value.modelsStatus)
+    }
+
+    @Test
+    fun endpointEditClearsStaleCatalogAndSelection() = runTest(dispatcher) {
+        val viewModel = createViewModel()
+        viewModel.observeEndpoint()
+        viewModel.onAction(OllamaEndpointSettingsAction.LoadModels)
+
+        viewModel.onAction(OllamaEndpointSettingsAction.HostChanged("other-host"))
+
+        assertEquals(emptyList(), viewModel.uiState.value.availableModels)
+        assertEquals("", viewModel.uiState.value.modelInput)
+        assertEquals(OllamaConnectionStatus.Idle, viewModel.uiState.value.connectionStatus)
+        assertEquals(OllamaModelsStatus.Idle, viewModel.uiState.value.modelsStatus)
     }
 
     private fun createViewModel(
         repository: FakeOllamaConfigurationRepository = FakeOllamaConfigurationRepository(),
-        connectionTester: AgentConnectionTester = FakeAgentConnectionTester(AgentConnectionTestResult.Success),
-        modelCatalog: AgentModelCatalog = FakeAgentModelCatalog(AgentModelListResult.Success(emptyList())),
+        connectionTester: FakeAgentConnectionTester = FakeAgentConnectionTester(),
+        modelCatalog: FakeAgentModelCatalog = FakeAgentModelCatalog(
+            AgentModelListResult.Success(listOf(DEFAULT_MODEL)),
+        ),
     ) = OllamaEndpointSettingsViewModel(
         repository = repository,
         connectionTester = connectionTester,
         modelCatalog = modelCatalog,
+        endpointValidator = FakeOllamaEndpointValidator(),
         dispatchers = OllamaTestDispatchers(dispatcher),
     )
+
+    private companion object {
+        const val DEFAULT_MODEL = "qwen3.5:0.8b"
+    }
 }
 
 private class FakeOllamaConfigurationRepository : AgentConfigurationRepository {
@@ -173,29 +252,77 @@ private class FakeOllamaConfigurationRepository : AgentConfigurationRepository {
         )
     )
     override val selectedProvider = MutableStateFlow<AgentProviderConfig?>(providers.value.first())
+    var updateCount = 0
 
     override suspend fun selectProvider(id: AgentProviderId) {
         selectedProvider.value = providers.value.firstOrNull { it.id == id }
     }
 
     override suspend fun updateProvider(config: AgentProviderConfig) {
+        updateCount++
         providers.value = providers.value.map { if (it.id == config.id) config else it }
-        if (selectedProvider.value?.id == config.id) {
-            selectedProvider.value = config
-        }
+        if (selectedProvider.value?.id == config.id) selectedProvider.value = config
     }
+
+    fun ollamaProvider(): AgentProviderConfig = providers.value.first()
 }
 
 private class FakeAgentConnectionTester(
-    private val result: AgentConnectionTestResult,
+    private val result: AgentConnectionTestResult = AgentConnectionTestResult.Success,
 ) : AgentConnectionTester {
-    override suspend fun testConnection(config: AgentProviderConfig): AgentConnectionTestResult = result
+    var callCount = 0
+
+    override suspend fun testConnection(config: AgentProviderConfig): AgentConnectionTestResult {
+        callCount++
+        return result
+    }
 }
 
 private class FakeAgentModelCatalog(
-    private val result: AgentModelListResult,
+    private val result: AgentModelListResult = AgentModelListResult.Success(emptyList()),
 ) : AgentModelCatalog {
-    override suspend fun loadModels(config: AgentProviderConfig): AgentModelListResult = result
+    var callCount = 0
+
+    override suspend fun loadModels(config: AgentProviderConfig): AgentModelListResult {
+        callCount++
+        return result
+    }
+}
+
+private class FakeOllamaEndpointValidator : OllamaEndpointValidator {
+    override fun validate(hostInput: String, portInput: String): OllamaEndpointValidationResult {
+        val host = hostInput.trim().removePrefix("[").removeSuffix("]")
+        if (host.isBlank() || host.contains("://") || host.any(Char::isWhitespace)) {
+            return OllamaEndpointValidationResult.InvalidHost
+        }
+        val port = portInput.trim().toIntOrNull()
+        if (port == null || port !in 1..65535) return OllamaEndpointValidationResult.InvalidPort
+        val urlHost = if (host.contains(':')) "[$host]" else host
+        return OllamaEndpointValidationResult.Valid(
+            ValidatedOllamaEndpoint(
+                value = "http://$urlHost:$port",
+                host = host,
+                port = port,
+            )
+        )
+    }
+
+    override fun parse(endpoint: String): ValidatedOllamaEndpoint? {
+        if (!endpoint.startsWith("http://")) return null
+        val authority = endpoint.removePrefix("http://")
+        val host: String
+        val port: String
+        if (authority.startsWith('[')) {
+            val closingBracket = authority.indexOf(']')
+            if (closingBracket < 0) return null
+            host = authority.substring(1, closingBracket)
+            port = authority.substring(closingBracket + 1).removePrefix(":")
+        } else {
+            host = authority.substringBeforeLast(':', missingDelimiterValue = "")
+            port = authority.substringAfterLast(':', missingDelimiterValue = "")
+        }
+        return (validate(host, port) as? OllamaEndpointValidationResult.Valid)?.endpoint
+    }
 }
 
 private class OllamaTestDispatchers(

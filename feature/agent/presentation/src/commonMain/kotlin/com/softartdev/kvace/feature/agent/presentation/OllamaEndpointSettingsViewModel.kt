@@ -11,6 +11,10 @@ import com.softartdev.kvace.feature.agent.domain.AgentModelCatalog
 import com.softartdev.kvace.feature.agent.domain.AgentModelListResult
 import com.softartdev.kvace.feature.agent.domain.AgentProviderConfig
 import com.softartdev.kvace.feature.agent.domain.AgentProviderId
+import com.softartdev.kvace.feature.agent.domain.OllamaEndpointValidationResult
+import com.softartdev.kvace.feature.agent.domain.OllamaEndpointValidator
+import com.softartdev.kvace.feature.agent.domain.ValidatedOllamaEndpoint
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.launchIn
@@ -22,6 +26,7 @@ class OllamaEndpointSettingsViewModel(
     private val repository: AgentConfigurationRepository,
     private val connectionTester: AgentConnectionTester,
     private val modelCatalog: AgentModelCatalog,
+    private val endpointValidator: OllamaEndpointValidator,
     private val dispatchers: CoroutineDispatchers,
 ) : ViewModel() {
     private val logger = Logger.withTag("OllamaEndpointSettingsViewModel")
@@ -33,6 +38,8 @@ class OllamaEndpointSettingsViewModel(
     private var isInputInitialized = false
     private var isModelInputInitialized = false
     private var ollamaProviderConfig: AgentProviderConfig? = null
+    private var endpointOperationJob: Job? = null
+    private var catalogEndpoint: String? = null
 
     fun observeEndpoint() {
         if (isObservingEndpoint) return
@@ -42,71 +49,65 @@ class OllamaEndpointSettingsViewModel(
             val ollamaConfig: AgentProviderConfig? = providers.firstOrNull { it.id == AgentProviderId.Ollama }
             ollamaProviderConfig = ollamaConfig
             val endpoint = ollamaConfig?.endpoint
-            val endpointInput = parseEndpoint(endpoint)
+            val parsedEndpoint = endpoint?.let(endpointValidator::parse)
             val shouldInitializeInput = !isInputInitialized && endpoint != null
             val shouldInitializeModel = !isModelInputInitialized && ollamaConfig != null
             uiState.update { state ->
                 state.copy(
-                    hostInput = if (shouldInitializeInput) endpointInput.host else state.hostInput,
-                    portInput = if (shouldInitializeInput) endpointInput.port else state.portInput,
+                    hostInput = if (shouldInitializeInput) parsedEndpoint?.host.orEmpty() else state.hostInput,
+                    portInput = if (shouldInitializeInput) parsedEndpoint?.port?.toString().orEmpty() else state.portInput,
                     modelInput = if (shouldInitializeModel) ollamaConfig.modelName else state.modelInput,
                 )
             }
-            if (shouldInitializeInput) {
-                isInputInitialized = true
-            }
-            if (shouldInitializeModel) {
-                isModelInputInitialized = true
-            }
+            if (shouldInitializeInput) isInputInitialized = true
+            if (shouldInitializeModel) isModelInputInitialized = true
         }.launchIn(viewModelScope)
     }
 
     fun onAction(action: OllamaEndpointSettingsAction) {
         when (action) {
-            is OllamaEndpointSettingsAction.HostChanged -> uiState.update {
-                it.copy(hostInput = action.host, connectionStatus = OllamaConnectionStatus.Idle)
-            }
-            is OllamaEndpointSettingsAction.PortChanged -> uiState.update {
-                it.copy(portInput = action.port, connectionStatus = OllamaConnectionStatus.Idle)
-            }
-            is OllamaEndpointSettingsAction.ModelChanged -> updateModelInput(action.modelName)
+            is OllamaEndpointSettingsAction.HostChanged -> updateEndpointDraft(host = action.host)
+            is OllamaEndpointSettingsAction.PortChanged -> updateEndpointDraft(port = action.port)
             is OllamaEndpointSettingsAction.ModelSelected -> selectModel(action.modelName)
             OllamaEndpointSettingsAction.TestConnection -> testConnection()
             OllamaEndpointSettingsAction.LoadModels -> loadModels()
         }
     }
 
-    private fun testConnection() {
-        val state = uiState.value
-        if (state.connectionStatus == OllamaConnectionStatus.Testing) return
+    private fun updateEndpointDraft(host: String? = null, port: String? = null) {
+        endpointOperationJob?.cancel()
+        catalogEndpoint = null
+        uiState.update { state ->
+            state.copy(
+                hostInput = host ?: state.hostInput,
+                portInput = port ?: state.portInput,
+                modelInput = "",
+                availableModels = emptyList(),
+                connectionStatus = OllamaConnectionStatus.Idle,
+                modelsStatus = OllamaModelsStatus.Idle,
+            )
+        }
+    }
 
-        val host = state.hostInput.trim()
-        if (host.isBlank()) {
-            logger.w { "Rejected blank Ollama host" }
-            uiState.update { it.copy(connectionStatus = OllamaConnectionStatus.InvalidHost) }
-            return
+    private fun testConnection() {
+        if (uiState.value.isBusy) return
+        val pendingConfig = buildPendingConfig() ?: return
+
+        endpointOperationJob?.cancel()
+        uiState.update {
+            it.copy(
+                connectionStatus = OllamaConnectionStatus.Testing,
+                modelsStatus = OllamaModelsStatus.Idle,
+                availableModels = emptyList(),
+            )
         }
-        val port = state.portInput.trim().toIntOrNull()
-        if (port == null || port !in PORT_RANGE) {
-            logger.w { "Rejected invalid Ollama port: ${state.portInput}" }
-            uiState.update { it.copy(connectionStatus = OllamaConnectionStatus.InvalidPort) }
-            return
-        }
-        val config = ollamaProviderConfig ?: return
-        val pendingConfig = config.copy(
-            endpoint = "http://$host:$port",
-            isConfigured = false,
-        )
-        uiState.update { it.copy(connectionStatus = OllamaConnectionStatus.Testing) }
-        viewModelScope.launch(dispatchers.io) {
+        endpointOperationJob = viewModelScope.launch(dispatchers.io) {
             repository.updateProvider(pendingConfig)
             when (val result = connectionTester.testConnection(pendingConfig)) {
                 AgentConnectionTestResult.Success -> {
                     logger.i { "Connected to ${pendingConfig.endpoint}" }
-                    val configured = pendingConfig.copy(isConfigured = true)
-                    repository.updateProvider(configured)
                     uiState.update { it.copy(connectionStatus = OllamaConnectionStatus.Success) }
-                    loadModels(config = configured)
+                    loadModelsAndApply(pendingConfig)
                 }
                 is AgentConnectionTestResult.Failure -> {
                     logger.w { "Failed to connect to ${pendingConfig.endpoint}: ${result.message}" }
@@ -118,120 +119,97 @@ class OllamaEndpointSettingsViewModel(
         }
     }
 
-    private fun updateModelInput(modelName: String) {
-        uiState.update {
-            it.copy(modelInput = modelName, modelsStatus = OllamaModelsStatus.Idle)
+    private fun loadModels() {
+        if (uiState.value.isBusy) return
+        val pendingConfig = buildPendingConfig() ?: return
+
+        endpointOperationJob?.cancel()
+        endpointOperationJob = viewModelScope.launch(dispatchers.io) {
+            repository.updateProvider(pendingConfig)
+            loadModelsAndApply(pendingConfig)
         }
-        val trimmedModelName = modelName.trim()
-        if (trimmedModelName.isNotEmpty()) {
-            persistModel(trimmedModelName)
+    }
+
+    private suspend fun loadModelsAndApply(config: AgentProviderConfig) {
+        uiState.update { it.copy(modelsStatus = OllamaModelsStatus.Loading) }
+        when (val result = modelCatalog.loadModels(config)) {
+            is AgentModelListResult.Success -> applyLoadedModels(config, result.modelNames)
+            is AgentModelListResult.Failure -> {
+                logger.w { "Failed to load models: ${result.message}" }
+                catalogEndpoint = null
+                uiState.update {
+                    it.copy(modelsStatus = OllamaModelsStatus.Failure(result.message))
+                }
+            }
+        }
+    }
+
+    private suspend fun applyLoadedModels(config: AgentProviderConfig, modelNames: List<String>) {
+        val availableModels = modelNames.filter(String::isNotBlank)
+        val selectedModel = config.modelName.takeIf { it in availableModels }
+        catalogEndpoint = config.endpoint
+        if (selectedModel != null) {
+            repository.updateProvider(config.copy(isConfigured = true))
+        }
+        uiState.update {
+            it.copy(
+                modelInput = selectedModel.orEmpty(),
+                availableModels = availableModels,
+                connectionStatus = OllamaConnectionStatus.Success,
+                modelsStatus = when {
+                    availableModels.isEmpty() -> OllamaModelsStatus.Empty
+                    selectedModel == null -> OllamaModelsStatus.SelectionRequired
+                    else -> OllamaModelsStatus.Loaded
+                },
+            )
         }
     }
 
     private fun selectModel(modelName: String) {
-        uiState.update {
-            it.copy(modelInput = modelName, modelsStatus = OllamaModelsStatus.Loaded)
-        }
-        persistModel(modelName)
-    }
-
-    private fun persistModel(modelName: String) {
+        val state = uiState.value
+        if (modelName !in state.availableModels || state.isBusy) return
+        val endpoint = validatedEndpoint() ?: return
+        if (endpoint.value != catalogEndpoint) return
         val config = ollamaProviderConfig ?: return
-        viewModelScope.launch(dispatchers.io) {
-            repository.updateProvider(config.copy(modelName = modelName))
-        }
-    }
 
-    private fun loadModels() {
-        val config = buildPendingConfig() ?: return
-        loadModels(config)
-    }
-
-    private fun loadModels(config: AgentProviderConfig) {
-        if (uiState.value.modelsStatus == OllamaModelsStatus.Loading) return
-
-        uiState.update { it.copy(modelsStatus = OllamaModelsStatus.Loading) }
-        viewModelScope.launch(dispatchers.io) {
-            when (val result = modelCatalog.loadModels(config)) {
-                is AgentModelListResult.Success -> {
-                    val selectedModel: String? = selectBestModel(
-                        models = result.modelNames,
-                        currentModel = uiState.value.modelInput,
-                        fallbackModel = config.modelName,
-                    )
-                    if (selectedModel != null) {
-                        repository.updateProvider(config.copy(modelName = selectedModel, isConfigured = true))
-                    }
-                    uiState.update {
-                        val modelsStatus: OllamaModelsStatus =
-                            if (result.modelNames.isEmpty()) OllamaModelsStatus.Empty else OllamaModelsStatus.Loaded
-                        it.copy(
-                            modelInput = selectedModel ?: it.modelInput,
-                            availableModels = result.modelNames,
-                            modelsStatus = modelsStatus,
-                        )
-                    }
-                }
-                is AgentModelListResult.Failure -> {
-                    logger.w { "Failed to load models: ${result.message}" }
-                    uiState.update {
-                        it.copy(modelsStatus = OllamaModelsStatus.Failure(result.message))
-                    }
-                }
+        endpointOperationJob?.cancel()
+        endpointOperationJob = viewModelScope.launch(dispatchers.io) {
+            repository.updateProvider(
+                config.copy(
+                    modelName = modelName,
+                    endpoint = endpoint.value,
+                    isConfigured = true,
+                )
+            )
+            uiState.update {
+                it.copy(modelInput = modelName, modelsStatus = OllamaModelsStatus.Loaded)
             }
         }
     }
 
     private fun buildPendingConfig(): AgentProviderConfig? {
-        val state = uiState.value
-        val host = state.hostInput.trim()
-        if (host.isBlank()) {
-            uiState.update { it.copy(connectionStatus = OllamaConnectionStatus.InvalidHost) }
-            return null
-        }
-        val port = state.portInput.trim().toIntOrNull()
-        if (port == null || port !in PORT_RANGE) {
-            uiState.update { it.copy(connectionStatus = OllamaConnectionStatus.InvalidPort) }
-            return null
-        }
-        val modelName = state.modelInput.trim()
+        val endpoint = validatedEndpoint() ?: return null
         val config = ollamaProviderConfig ?: return null
-        return config.copy(
-            endpoint = "http://$host:$port",
-            modelName = modelName.ifBlank { config.modelName },
-            isConfigured = true,
-        )
+        return config.copy(endpoint = endpoint.value, isConfigured = false)
     }
 
-    private data class EndpointInput(val host: String, val port: String)
-
-    private companion object {
-        val PORT_RANGE: IntRange = 1..65535
-
-        fun selectBestModel(
-            models: List<String>,
-            currentModel: String,
-            fallbackModel: String,
-        ): String? {
-            if (models.isEmpty()) return currentModel.ifBlank { fallbackModel }.ifBlank { null }
-
-            val trimmedCurrentModel = currentModel.trim()
-            return when {
-                trimmedCurrentModel in models -> trimmedCurrentModel
-                fallbackModel in models -> fallbackModel
-                else -> models.first()
+    private fun validatedEndpoint(): ValidatedOllamaEndpoint? {
+        val state = uiState.value
+        return when (val result = endpointValidator.validate(state.hostInput, state.portInput)) {
+            is OllamaEndpointValidationResult.Valid -> result.endpoint
+            OllamaEndpointValidationResult.InvalidHost -> {
+                logger.w { "Rejected invalid Ollama host: ${state.hostInput}" }
+                uiState.update { it.copy(connectionStatus = OllamaConnectionStatus.InvalidHost) }
+                null
+            }
+            OllamaEndpointValidationResult.InvalidPort -> {
+                logger.w { "Rejected invalid Ollama port: ${state.portInput}" }
+                uiState.update { it.copy(connectionStatus = OllamaConnectionStatus.InvalidPort) }
+                null
             }
         }
-
-        fun parseEndpoint(endpoint: String?): EndpointInput {
-            val hostAndPort = endpoint
-                ?.substringAfter("://", endpoint)
-                ?.substringBefore("/")
-                ?: return EndpointInput(host = "", port = "")
-            return EndpointInput(
-                host = hostAndPort.substringBefore(":"),
-                port = hostAndPort.substringAfter(":", ""),
-            )
-        }
     }
+
+    private val OllamaEndpointSettingsUiState.isBusy: Boolean
+        get() = connectionStatus == OllamaConnectionStatus.Testing || modelsStatus == OllamaModelsStatus.Loading
 }

@@ -19,6 +19,23 @@ data class AgentProviderConfig(
     val isConfigured: Boolean = false,
 )
 
+data class ValidatedOllamaEndpoint(
+    val value: String,
+    val host: String,
+    val port: Int,
+)
+
+sealed interface OllamaEndpointValidationResult {
+    data class Valid(val endpoint: ValidatedOllamaEndpoint) : OllamaEndpointValidationResult
+    data object InvalidHost : OllamaEndpointValidationResult
+    data object InvalidPort : OllamaEndpointValidationResult
+}
+
+interface OllamaEndpointValidator {
+    fun validate(hostInput: String, portInput: String): OllamaEndpointValidationResult
+    fun parse(endpoint: String): ValidatedOllamaEndpoint?
+}
+
 data class AgentRequest(
     val prompt: String,
     val providerId: AgentProviderId? = null,

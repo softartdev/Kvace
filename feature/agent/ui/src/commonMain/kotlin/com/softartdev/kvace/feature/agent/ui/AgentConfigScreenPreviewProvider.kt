@@ -28,6 +28,7 @@ internal class AgentConfigScreenPreviewProvider : PreviewParameterProvider<Agent
                 ),
             ),
             selectedProviderId = AgentProviderId.Ollama,
+            openAiModelInput = "gpt-4o",
         ),
     )
 }

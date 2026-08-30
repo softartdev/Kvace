@@ -7,7 +7,7 @@ import com.softartdev.kvace.feature.agent.presentation.OllamaModelsStatus
 
 internal class OllamaEndpointSettingsPreviewProvider : PreviewParameterProvider<OllamaEndpointSettingsUiState> {
 
-    override val values: Sequence<OllamaEndpointSettingsUiState> = sequenceOf(loadedState)
+    override val values: Sequence<OllamaEndpointSettingsUiState> = sequenceOf(loadedState, selectionRequiredState)
 
     internal companion object {
         val loadedState = OllamaEndpointSettingsUiState(
@@ -17,6 +17,11 @@ internal class OllamaEndpointSettingsPreviewProvider : PreviewParameterProvider<
             availableModels = listOf("llama3.2:latest", "qwen3.5:0.8b"),
             connectionStatus = OllamaConnectionStatus.Idle,
             modelsStatus = OllamaModelsStatus.Loaded,
+        )
+        val selectionRequiredState = loadedState.copy(
+            modelInput = "",
+            connectionStatus = OllamaConnectionStatus.Success,
+            modelsStatus = OllamaModelsStatus.SelectionRequired,
         )
     }
 }

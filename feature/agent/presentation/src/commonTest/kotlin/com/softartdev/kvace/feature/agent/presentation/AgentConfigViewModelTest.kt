@@ -6,6 +6,7 @@ import com.softartdev.kvace.feature.agent.domain.AgentProviderConfig
 import com.softartdev.kvace.feature.agent.domain.AgentProviderId
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.TestDispatcher
@@ -42,6 +43,7 @@ class AgentConfigViewModelTest {
 
         assertEquals(repository.providers.value, viewModel.uiState.value.providers)
         assertEquals(AgentProviderId.Ollama, viewModel.uiState.value.selectedProviderId)
+        assertEquals("gpt-4o", viewModel.uiState.value.openAiModelInput)
     }
 
     @Test
@@ -57,23 +59,56 @@ class AgentConfigViewModelTest {
     }
 
     @Test
-    fun providerModelChangedUpdatesRepository() = runTest(dispatcher) {
+    fun openAiModelChangedUpdatesRepositoryWithTrimmedValue() = runTest(dispatcher) {
         val repository = FakeAgentConfigurationRepository()
         val viewModel = AgentConfigViewModel(
             repository = repository,
             dispatchers = TestCoroutineDispatchers(dispatcher),
         )
 
-        viewModel.onAction(AgentConfigAction.ProviderModelChanged(AgentProviderId.OpenAI, "gpt-4.1-mini"))
+        viewModel.onAction(AgentConfigAction.OpenAiModelChanged("  gpt-4.1-mini  "))
 
         assertEquals(
             "gpt-4.1-mini",
             repository.providers.value.first { it.id == AgentProviderId.OpenAI }.modelName,
         )
+        assertEquals("  gpt-4.1-mini  ", viewModel.uiState.value.openAiModelInput)
+        assertEquals(null, viewModel.uiState.value.openAiModelValidationError)
     }
+
+    @Test
+    fun blankOpenAiModelRemainsDraftWithoutOverwritingStoredModel() = runTest(dispatcher) {
+        val repository = FakeAgentConfigurationRepository()
+        val viewModel = createViewModel(repository)
+        viewModel.observeProviders()
+
+        viewModel.onAction(AgentConfigAction.OpenAiModelChanged("   "))
+
+        assertEquals("gpt-4o", repository.openAiProvider().modelName)
+        assertEquals("   ", viewModel.uiState.value.openAiModelInput)
+        assertEquals(OpenAiModelValidationError.Required, viewModel.uiState.value.openAiModelValidationError)
+    }
+
+    @Test
+    fun latestOpenAiModelEditWinsWhenPreviousWriteIsStillPending() = runTest(dispatcher) {
+        val repository = FakeAgentConfigurationRepository(delayedModel = "gpt-slow")
+        val viewModel = createViewModel(repository)
+
+        viewModel.onAction(AgentConfigAction.OpenAiModelChanged("gpt-slow"))
+        viewModel.onAction(AgentConfigAction.OpenAiModelChanged("gpt-latest"))
+
+        assertEquals("gpt-latest", repository.openAiProvider().modelName)
+    }
+
+    private fun createViewModel(repository: FakeAgentConfigurationRepository) = AgentConfigViewModel(
+        repository = repository,
+        dispatchers = TestCoroutineDispatchers(dispatcher),
+    )
 }
 
-private class FakeAgentConfigurationRepository : AgentConfigurationRepository {
+private class FakeAgentConfigurationRepository(
+    private val delayedModel: String? = null,
+) : AgentConfigurationRepository {
     override val providers = MutableStateFlow(
         listOf(
             AgentProviderConfig(
@@ -100,11 +135,14 @@ private class FakeAgentConfigurationRepository : AgentConfigurationRepository {
     }
 
     override suspend fun updateProvider(config: AgentProviderConfig) {
+        if (config.modelName == delayedModel) delay(1_000)
         providers.value = providers.value.map { if (it.id == config.id) config else it }
         if (selectedProvider.value?.id == config.id) {
             selectedProvider.value = config
         }
     }
+
+    fun openAiProvider(): AgentProviderConfig = providers.value.first { it.id == AgentProviderId.OpenAI }
 }
 
 private class TestCoroutineDispatchers(

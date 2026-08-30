@@ -102,7 +102,7 @@ fun ScreenshootProvidersWidePreview(
 @Preview(widthDp = 390, heightDp = 760)
 @Composable
 fun ScreenshootProvidersCompactPreview(
-    @PreviewParameter(ScreenshootProvidersOllamaPreviewProvider::class) state: ScreenshootProvidersPreviewState,
+    @PreviewParameter(ScreenshootProvidersOllamaErrorPreviewProvider::class) state: ScreenshootProvidersPreviewState,
 ) = PreferableMaterialTheme {
     AgentConfigScreen(
         state = state.agentState,

@@ -63,14 +63,68 @@ class OllamaConnectionInstrumentedTest {
             .assertIsDisplayed()
     }
 
+    @Test
+    fun ollamaInvalidHostShowsInlineErrorWithoutNetworkRequest() {
+        navigateToOllama()
+        composeRule.replaceText("ollama_host_field", "http://127.0.0.1")
+        composeRule.replaceText("ollama_port_field", OLLAMA_PORT)
+
+        composeRule.onNodeWithTag("ollama_test_connection_button").performClick()
+
+        composeRule.onNodeWithTag("ollama_host_error", useUnmergedTree = true).assertExists()
+        assertEquals(
+            "Enter an Ollama host or IP address.",
+            composeRule.textForTag("ollama_host_error"),
+        )
+    }
+
+    @Test
+    fun ollamaInvalidPortShowsInlineErrorWithoutNetworkRequest() {
+        navigateToOllama()
+        composeRule.replaceText("ollama_host_field", "127.0.0.1")
+        composeRule.replaceText("ollama_port_field", "70000")
+
+        composeRule.onNodeWithTag("ollama_load_models_button").performClick()
+
+        composeRule.onNodeWithTag("ollama_port_error", useUnmergedTree = true).assertExists()
+        assertEquals(
+            "Enter a valid port from 1 to 65535.",
+            composeRule.textForTag("ollama_port_error"),
+        )
+    }
+
+    @Test
+    fun openAiBlankModelShowsRequiredInlineError() {
+        composeRule.onNodeWithTag("nav_agents").performClick()
+        composeRule.onNodeWithTag("agent_provider_OpenAI").performClick()
+
+        composeRule.onNodeWithTag("openai_model_field").performTextClearance()
+
+        composeRule.onNodeWithTag("openai_model_error", useUnmergedTree = true).assertExists()
+        assertEquals(
+            "Enter an OpenAI model ID.",
+            composeRule.textForTag("openai_model_error"),
+        )
+    }
+
+    private fun navigateToOllama() {
+        composeRule.onNodeWithTag("nav_agents").performClick()
+        composeRule.onNodeWithTag("agent_provider_Ollama").performClick()
+    }
+
     private companion object {
         const val ANDROID_EMULATOR_LOCALHOST = "10.0.2.2"
         const val OLLAMA_PORT = "11434"
     }
 }
 
+private fun ComposeTestRule.replaceText(tag: String, value: String) {
+    onNodeWithTag(tag).performTextClearance()
+    onNodeWithTag(tag).performTextInput(value)
+}
+
 private fun ComposeTestRule.textForTag(tag: String): String {
-    val text = onNodeWithTag(tag)
+    val text = onNodeWithTag(tag, useUnmergedTree = true)
         .fetchSemanticsNode()
         .config[SemanticsProperties.Text]
 

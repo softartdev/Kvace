@@ -80,6 +80,7 @@
     <string name="agents_ollama_loading_models">Loading models...</string>
     <string name="agents_ollama_models_available">Available models</string>
     <string name="agents_ollama_models_loaded">Models loaded</string>
+    <string name="agents_ollama_model_selection_required">Select a model loaded from this Ollama server.</string>
     <string name="agents_ollama_models_empty">No Ollama models found on this server.</string>
     <string name="agents_ollama_models_failed">Model loading failed</string>
     <string name="agents_ollama_models_failed_detail">Model loading failed: %1$s</string>
@@ -87,6 +88,7 @@
     <string name="agents_on_device_unavailable">Unavailable on this platform</string>
     <string name="agents_openai_credentials_title">Credentials</string>
     <string name="agents_openai_credentials_message">OpenAI execution is disabled until secure credential storage is implemented.</string>
+    <string name="agents_openai_model_required">Enter an OpenAI model ID.</string>
 
     <string name="settings_title">Settings</string>
     <string name="settings_section_appearance">Appearance</string>

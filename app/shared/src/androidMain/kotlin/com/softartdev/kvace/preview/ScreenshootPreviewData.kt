@@ -7,6 +7,7 @@ import com.softartdev.kvace.feature.agent.presentation.AgentConfigUiState
 import com.softartdev.kvace.feature.agent.presentation.OllamaConnectionStatus
 import com.softartdev.kvace.feature.agent.presentation.OllamaEndpointSettingsUiState
 import com.softartdev.kvace.feature.agent.presentation.OllamaModelsStatus
+import com.softartdev.kvace.feature.agent.presentation.OpenAiModelValidationError
 import com.softartdev.kvace.feature.chat.domain.ChatMessage
 import com.softartdev.kvace.feature.chat.domain.ChatSummary
 import com.softartdev.kvace.feature.chat.domain.Conversation
@@ -86,6 +87,17 @@ class ScreenshootProvidersOpenAiPreviewProvider :
             ScreenshootProvidersPreviewState(
                 agentState = ScreenshootPreviewSamples.providersOpenAi,
                 ollamaState = ScreenshootPreviewSamples.ollamaLoaded,
+            ),
+        )
+}
+
+class ScreenshootProvidersOllamaErrorPreviewProvider :
+    PreviewParameterProvider<ScreenshootProvidersPreviewState> {
+    override val values: Sequence<ScreenshootProvidersPreviewState> =
+        sequenceOf(
+            ScreenshootProvidersPreviewState(
+                agentState = ScreenshootPreviewSamples.providersOllama,
+                ollamaState = ScreenshootPreviewSamples.ollamaSelectionRequired,
             ),
         )
 }
@@ -197,11 +209,14 @@ private object ScreenshootPreviewSamples {
     val providersOllama = AgentConfigUiState(
         providers = providers(),
         selectedProviderId = AgentProviderId.Ollama,
+        openAiModelInput = "gpt-4o",
     )
 
     val providersOpenAi = AgentConfigUiState(
         providers = providers(),
         selectedProviderId = AgentProviderId.OpenAI,
+        openAiModelInput = "",
+        openAiModelValidationError = OpenAiModelValidationError.Required,
     )
 
     val ollamaLoaded = OllamaEndpointSettingsUiState(
@@ -211,6 +226,11 @@ private object ScreenshootPreviewSamples {
         availableModels = listOf("qwen3.5:0.8b", "llama3.2:3b", "mistral:7b"),
         connectionStatus = OllamaConnectionStatus.Success,
         modelsStatus = OllamaModelsStatus.Loaded,
+    )
+
+    val ollamaSelectionRequired = ollamaLoaded.copy(
+        modelInput = "",
+        modelsStatus = OllamaModelsStatus.SelectionRequired,
     )
 
     val harnessEnabled = HarnessSettingsUiState(
