@@ -13,7 +13,8 @@ This roadmap starts from the current KMP + Compose architecture after enabling p
 - Ollama host/port connection testing and server model loading through data-layer clients.
 - Ollama `shell_command` tool calling for one read-only allowlisted command per send. Desktop JVM executes through
   `ProcessBuilder`; Android, iOS, and Web/Wasm return unsupported results until platform bridges exist.
-- On-device provider selection with Android ML Kit Prompt API and an iOS Swift bridge for Apple Foundation Models.
+- On-device provider selection with Android ML Kit Prompt API, an iOS Swift bridge, and a macOS JVM Swift helper for
+  Apple Foundation Models.
 - Android emulator localhost handling through emulator detection, defaulting Ollama to `10.0.2.2:11434`.
 - Multiplatform Settings persistence for selected provider, provider endpoint/model fields, app settings selection, and Wasm browser storage.
 - Harness prompt persistence through Multiplatform Settings.
@@ -73,6 +74,8 @@ Validation gate:
 
 ## Phase 5: Platform-Specific Capabilities
 
+- [x] Add Apple Foundation Models to Desktop JVM on Apple Silicon macOS 26+ through a signed, packaged Swift helper,
+  with process isolation, cancellation, resource extraction, and Compose Hot Reload support.
 - Desktop JVM: expand beyond the current read-only `shell_command` tool only after the safety model is proven.
 - Android: implement the planned Termux bridge for terminal-backed capabilities.
 - iOS and Web/Wasm: keep terminal features disabled or provide remote/limited abstractions where platform rules require it.

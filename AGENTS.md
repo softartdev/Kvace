@@ -14,6 +14,9 @@ This file provides repository-wide guidance for AI coding agents working in Kvac
 # Desktop with Compose Hot Reload (for live UI validation through MCP)
 ./gradlew :app:desktopApp:hotRun
 
+# macOS ARM64 Apple Foundation Models helper (requires Xcode 26+)
+./gradlew :app:desktopApp:verifyMacOsFoundationModelsBridge
+
 # Web (Wasm)
 ./gradlew :app:webApp:wasmJsBrowserDevelopmentRun
 
@@ -73,7 +76,7 @@ Each feature (`chat`, `agent`, `settings`) is split into four modules: `domain`,
 | Persistence | Multiplatform Settings 1.3.0 |
 | Logging | Kermit 2.1.0 |
 | AI runtime | Koog 1.2.0 (Ollama + on-device), isolated in `:feature:agent:data` |
-| On-device AI | ML Kit Prompt API (Android), Apple Foundation Models via Swift bridge (iOS 26+) |
+| On-device AI | ML Kit Prompt API (Android), Apple Foundation Models via Swift bridges (iOS/Catalyst and macOS 26+ JVM helper) |
 | Time | Kronos 0.0.2 (called at platform startup, not via DI) |
 
 ## ViewModel / Presentation Pattern
@@ -141,8 +144,12 @@ as ordinary application-side effects.
 ## Data Layer Rules
 
 - Keep external SDK types (Koog, Ktor, ML Kit) inside `data` modules
+- Keep the macOS JVM Foundation Models process protocol and lifecycle inside `:feature:agent:data`; the Swift helper
+  source and packaging belong to `:app:desktopApp`
 - Use cancellation-aware `try/catch` around suspend I/O; never map cancellation to a failure
 - Persist successfully before publishing a new repository `StateFlow` value
+- Take the On-device model label from `OnDeviceModelProvider`; it is platform-owned and must not be read from or
+  written to Settings
 - Small preferences via Multiplatform Settings; do not persist hosted-provider secrets (secure storage not yet implemented)
 - `AgentRuntime` is the only Koog-aware contract that `presentation` may reference
 

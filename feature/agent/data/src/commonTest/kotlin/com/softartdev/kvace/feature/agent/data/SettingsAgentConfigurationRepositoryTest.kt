@@ -44,6 +44,24 @@ class SettingsAgentConfigurationRepositoryTest {
     }
 
     @Test
+    fun platformOnDeviceLabelOverridesLegacySavedValue() {
+        val settingsFactory = InMemoryPersistentSettingsFactory()
+        settingsFactory.create("kvace_agent_configuration")
+            .putString("on_device_model", "Legacy saved model")
+
+        val repository = createRepository(
+            settingsFactory = settingsFactory,
+            onDeviceModelProvider = FakeOnDeviceModelProvider(
+                modelName = APPLE_ON_DEVICE_MODEL_LABEL,
+                isAvailable = true,
+            ),
+        )
+
+        val provider = repository.providers.value.first { it.id == AgentProviderId.OnDevice }
+        assertEquals(APPLE_ON_DEVICE_MODEL_LABEL, provider.modelName)
+    }
+
+    @Test
     fun persistsSelectedOnDeviceProvider() = runTest {
         val settingsFactory = InMemoryPersistentSettingsFactory()
         val repository = createRepository(settingsFactory = settingsFactory)

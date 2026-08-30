@@ -47,7 +47,7 @@ class SettingsAgentConfigurationRepository(
         ),
         AgentProviderConfig(
             id = AgentProviderId.OnDevice,
-            modelName = settings.getStringOrNull(KEY_ON_DEVICE_MODEL) ?: onDeviceModelProvider.modelName,
+            modelName = onDeviceModelProvider.modelName,
             isConfigured = onDeviceModelProvider.isAvailable,
         ),
         AgentProviderConfig(
@@ -76,9 +76,7 @@ class SettingsAgentConfigurationRepository(
             settings.putString(KEY_OPENAI_MODEL, config.modelName)
             settings.putBoolean(KEY_OPENAI_CONFIGURED, config.isConfigured)
         }
-        AgentProviderId.OnDevice -> {
-            settings.putString(KEY_ON_DEVICE_MODEL, config.modelName)
-        }
+        AgentProviderId.OnDevice -> Unit
     }
 
     private companion object {
@@ -90,8 +88,6 @@ class SettingsAgentConfigurationRepository(
         const val KEY_OLLAMA_CONFIGURED = "ollama_configured"
         const val KEY_OPENAI_MODEL = "openai_model"
         const val KEY_OPENAI_CONFIGURED = "openai_configured"
-        const val KEY_ON_DEVICE_MODEL = "on_device_model"
-
         const val DEFAULT_OLLAMA_MODEL = "qwen3.5:0.8b"
         const val DEFAULT_OPENAI_MODEL = "gpt-4o"
     }

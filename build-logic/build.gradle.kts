@@ -21,5 +21,9 @@ gradlePlugin {
             id = "kvace.kmp.compose-library"
             implementationClass = "KvaceComposeKmpLibraryPlugin"
         }
+        register("kvaceDesktopFoundationModels") {
+            id = "kvace.desktop.foundation-models"
+            implementationClass = "FoundationModelsBridgePlugin"
+        }
     }
 }

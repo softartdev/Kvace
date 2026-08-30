@@ -126,6 +126,29 @@ after adding or changing the server configuration.
 Do not use MCP actions to invoke destructive, persistent, network, or AI-provider behavior unless that behavior is
 part of the requested test. Restrict interaction to the necessary scenario and safe test data.
 
+### macOS JVM On-device verification
+
+On Apple Silicon macOS, Xcode 26+ is required for helper compilation. The helper verification task is intentionally
+separate from the cross-platform `check` lifecycle:
+
+```bash
+./gradlew :app:desktopApp:verifyMacOsFoundationModelsBridge
+./gradlew :feature:agent:data:jvmTest :app:shared:jvmTest
+./gradlew :app:desktopApp:createDistributable
+codesign --verify --deep --strict \
+  app/desktopApp/build/compose/binaries/main/app/com.softartdev.kvace.app
+```
+
+The JVM tests cover platform gates, native status mapping, protocol failures, timeouts, output limits, process
+cancellation, helper resource lookup, Koin resolution, and the platform-owned model label. For a live smoke test,
+start `hotRun`, require MCP `connected: true`, open Providers, and confirm On-device shows
+`Apple Foundation Models` and `Available on this platform`. Select it and send a safe prompt; verify a non-empty
+assistant response whose generation metadata names `Apple Foundation Models`, without invoking Ollama or OpenAI.
+
+Repeat the provider smoke test from `runDistributable` before release packaging. The packaged helper is expected to
+lose its executable bit inside Compose app resources; `JvmOnDeviceModelProvider` must extract it into a unique private
+temporary directory, apply `0700`, and remove it when the application exits.
+
 The Settings Libraries preview uses the real AboutLibraries `LibrariesContainer`. If Android Studio's renderer reports
 `NoClassDefFoundError: com/mikepenz/aboutlibraries/ui/compose/ExtensionsKt`, treat it as an Android Studio preview
 classpath issue after confirming Gradle Android compilation succeeds. Do not work around it by copying the Libraries UI

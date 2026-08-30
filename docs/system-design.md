@@ -41,7 +41,13 @@ Ollama is selected by default and uses `qwen3.5:0.8b`. Android emulator builds d
 
 Providers can query Ollama `/api/tags` through the domain-level `AgentModelCatalog`. This keeps server model discovery out of UI code and lets the app persist the selected server model before chat execution.
 
-On-device support stays behind `OnDeviceModelProvider`. Android binds an ML Kit Prompt API provider and guards execution to API 26+. iOS binds an adapter around a Swift-supplied `OnDevicePromptApi`, which `iOSApp` registers only when Apple Foundation Models are available. JVM desktop and Web/Wasm bind unavailable on-device providers that produce explicit unsupported-platform errors.
+On-device support stays behind `OnDeviceModelProvider`. Android binds an ML Kit Prompt API provider and guards
+execution to API 26+. iOS binds an adapter around a Swift-supplied `OnDevicePromptApi`, which `iOSApp` registers only
+when Apple Foundation Models are available. On Apple Silicon with macOS 26+, Desktop JVM binds
+`JvmOnDeviceModelProvider`; it communicates with a bundled, short-lived Swift helper over versioned JSON on
+stdin/stdout so Foundation Models SDK types never cross into Kotlin. The JVM gate runs before helper extraction, so
+the main app keeps its older macOS deployment target. Windows, Linux, Intel Mac, older macOS, and Web/Wasm use explicit
+unavailable behavior.
 
 ## Persistence
 
@@ -49,10 +55,12 @@ Multiplatform Settings stores lightweight app and provider preferences:
 
 - selected provider
 - Ollama host, port, endpoint, and model
-- On-device model label
 - provider configured state
 - selected settings section
 - Harness enabled state and system prompt
+
+The On-device label and availability are platform-owned runtime values and are not persisted. A legacy
+`on_device_model` setting may remain in an existing installation, but repositories intentionally ignore it.
 
 Android uses SharedPreferences-backed settings, iOS uses NSUserDefaults, Desktop JVM uses Preferences, and Wasm uses Web Storage through Multiplatform Settings `StorageSettings`.
 

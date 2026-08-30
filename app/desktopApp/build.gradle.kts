@@ -5,7 +5,10 @@ plugins {
     alias(libs.plugins.composeMultiplatform)
     alias(libs.plugins.composeHotReload)
     alias(libs.plugins.composeCompiler)
+    id("kvace.desktop.foundation-models")
 }
+
+val appResourcesRoot = layout.buildDirectory.dir("generated/appResources")
 
 compose.desktop {
     application {
@@ -14,6 +17,8 @@ compose.desktop {
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
             packageName = "com.softartdev.kvace"
             packageVersion = "1.0.0"
+            modules("java.sql")
+            appResourcesRootDir.set(appResourcesRoot)
 
             macOS {
                 iconFile.set(project.file("src/main/resources/icons/kvace.icns"))

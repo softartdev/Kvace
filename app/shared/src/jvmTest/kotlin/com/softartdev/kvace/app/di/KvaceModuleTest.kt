@@ -10,6 +10,7 @@ import com.softartdev.kvace.feature.agent.domain.AgentModelCatalog
 import com.softartdev.kvace.feature.agent.domain.AgentRuntime
 import com.softartdev.kvace.feature.agent.domain.HarnessConfigurationRepository
 import com.softartdev.kvace.feature.agent.domain.ShellCommandExecutor
+import com.softartdev.kvace.feature.agent.data.OnDeviceModelProvider
 import com.softartdev.kvace.feature.agent.presentation.AgentConfigViewModel
 import com.softartdev.kvace.feature.agent.presentation.OllamaEndpointSettingsViewModel
 import com.softartdev.kvace.feature.chat.data.ChatLocalDataSource
@@ -53,6 +54,7 @@ class KvaceModuleTest {
         assertNotNull(koin.get<AgentConnectionTester>())
         assertNotNull(koin.get<AgentModelCatalog>())
         assertNotNull(koin.get<AgentRuntime>())
+        assertNotNull(koin.get<OnDeviceModelProvider>())
         assertNotNull(koin.get<ShellCommandExecutor>())
         assertNotNull(koin.get<ChatLocalDataSource>())
         assertNotNull(koin.get<ChatRepository>())
