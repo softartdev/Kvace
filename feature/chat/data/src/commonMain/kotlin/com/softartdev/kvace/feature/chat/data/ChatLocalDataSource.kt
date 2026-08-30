@@ -1,6 +1,7 @@
 package com.softartdev.kvace.feature.chat.data
 
 import com.softartdev.kvace.feature.chat.domain.ChatMessage
+import com.softartdev.kvace.feature.agent.domain.AgentExecutionError
 import com.softartdev.kvace.feature.chat.domain.ChatSummary
 import com.softartdev.kvace.feature.chat.domain.Conversation
 import com.softartdev.kvace.feature.chat.domain.MessageAuthor
@@ -20,6 +21,7 @@ interface ChatLocalDataSource {
         createdAtMillis: Long,
         generatedByModelName: String?,
         generatedAtMillis: Long?,
+        error: AgentExecutionError?,
     ): ChatMessage
 
     suspend fun updateMessageText(

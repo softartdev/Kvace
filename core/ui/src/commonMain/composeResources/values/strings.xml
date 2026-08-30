@@ -46,6 +46,14 @@
     <string name="chat_author_event">Event</string>
     <string name="chat_author_system">System</string>
     <string name="chat_author_error">Error</string>
+    <string name="chat_agent_error_provider_not_configured">Configure an agent provider before sending messages.</string>
+    <string name="chat_agent_error_missing_credential">Add an API key before using this provider.</string>
+    <string name="chat_agent_error_credential_locked">Unlock the credential store before using this provider.</string>
+    <string name="chat_agent_error_network">The provider could not be reached.</string>
+    <string name="chat_agent_error_authentication">The provider rejected the API key.</string>
+    <string name="chat_agent_error_model_unavailable">The selected model is unavailable.</string>
+    <string name="chat_agent_error_cors_blocked">The browser blocked this provider endpoint because of CORS.</string>
+    <string name="chat_agent_error_request_failed">The provider request failed.</string>
     <string name="chat_preview_system_message">Kvace is ready. Ollama is selected by default; configure the endpoint in Settings if needed.</string>
     <string name="chat_preview_user_message">Draft a migration plan for my workspace.</string>
     <string name="chat_preview_reasoning_message">The model is checking the local context before answering.</string>

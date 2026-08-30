@@ -1,5 +1,6 @@
 package com.softartdev.kvace.feature.chat.domain
 
+import com.softartdev.kvace.feature.agent.domain.AgentExecutionError
 import kotlinx.coroutines.flow.StateFlow
 
 enum class MessageAuthor {
@@ -19,6 +20,7 @@ data class ChatMessage(
     val createdAtMillis: Long,
     val generatedByModelName: String? = null,
     val generatedAtMillis: Long? = null,
+    val error: AgentExecutionError? = null,
 ) {
     constructor(
         id: Long,
@@ -32,6 +34,7 @@ data class ChatMessage(
         createdAtMillis = createdAtMillis,
         generatedByModelName = null,
         generatedAtMillis = null,
+        error = null,
     )
 }
 
@@ -41,6 +44,7 @@ data class ChatSummary(
     val lastMessagePreview: String?,
     val updatedAtMillis: Long,
     val messageCount: Long,
+    val lastMessageError: AgentExecutionError? = null,
 )
 
 data class Conversation(
@@ -64,6 +68,7 @@ interface ChatRepository {
         text: String,
         generatedByModelName: String? = null,
         generatedAtMillis: Long? = null,
+        error: AgentExecutionError? = null,
     ): ChatMessage
 
     suspend fun updateMessageText(

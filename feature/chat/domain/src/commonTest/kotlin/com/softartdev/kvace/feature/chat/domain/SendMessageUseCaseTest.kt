@@ -81,7 +81,11 @@ class SendMessageUseCaseTest {
         useCase(1L, "Hello")
 
         assertEquals(MessageAuthor.Error, repository.conversation(1L).messages[1].author)
-        assertEquals("Provider failed", repository.conversation(1L).messages[1].text)
+        assertEquals("", repository.conversation(1L).messages[1].text)
+        assertEquals(
+            AgentExecutionError.RequestFailed("Provider failed"),
+            repository.conversation(1L).messages[1].error,
+        )
     }
 
     @Test
@@ -292,6 +296,7 @@ private class FakeChatRepository(
         text: String,
         generatedByModelName: String?,
         generatedAtMillis: Long?,
+        error: AgentExecutionError?,
     ): ChatMessage {
         val message = ChatMessage(
             id = nextMessageId++,
@@ -300,6 +305,7 @@ private class FakeChatRepository(
             createdAtMillis = 0L,
             generatedByModelName = generatedByModelName,
             generatedAtMillis = generatedAtMillis ?: generatedByModelName?.let { 0L },
+            error = error,
         )
         updateConversation(conversationId) { conversation ->
             conversation.copy(messages = conversation.messages + message)
@@ -368,6 +374,7 @@ private class FakeChatRepository(
         id = id,
         title = title,
         lastMessagePreview = messages.lastOrNull()?.text,
+        lastMessageError = messages.lastOrNull()?.error,
         updatedAtMillis = updatedAtMillis,
         messageCount = messages.size.toLong(),
     )

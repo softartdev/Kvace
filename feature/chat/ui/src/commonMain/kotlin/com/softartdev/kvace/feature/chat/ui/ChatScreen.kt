@@ -90,6 +90,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.tooling.preview.PreviewParameter
 import androidx.compose.ui.unit.dp
 import com.softartdev.kvace.core.ui.KvaceVerticalPaneExpansionDragHandle
+import com.softartdev.kvace.feature.agent.domain.AgentExecutionError
 import com.softartdev.kvace.feature.chat.domain.ChatMessage
 import com.softartdev.kvace.feature.chat.domain.ChatSummary
 import com.softartdev.kvace.feature.chat.domain.Conversation
@@ -473,7 +474,7 @@ private fun ChatSummaryItem(
         },
         supportingContent = {
             Text(
-                text = chat.lastMessagePreview ?: stringResource(Res.string.chat_no_preview),
+                text = chat.localizedPreview(),
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -770,6 +771,7 @@ private fun ChatDialogs(state: ChatUiState, onAction: (ChatAction) -> Unit) {
 private fun ChatMessageItem(message: ChatMessage, onAction: (ChatAction) -> Unit) {
     val clipboardManager = LocalClipboardManager.current
     val hapticFeedback = LocalHapticFeedback.current
+    val localizedMessageText = message.localizedText()
     var menuExpanded by remember { mutableStateOf(false) }
 
     Box {
@@ -807,7 +809,7 @@ private fun ChatMessageItem(message: ChatMessage, onAction: (ChatAction) -> Unit
                     }
                 }
                 SelectionContainer {
-                    Text(message.text)
+                    Text(localizedMessageText)
                 }
             }
         }
@@ -824,7 +826,7 @@ private fun ChatMessageItem(message: ChatMessage, onAction: (ChatAction) -> Unit
                     )
                 },
                 onClick = {
-                    clipboardManager.setText(AnnotatedString(message.text))
+                    clipboardManager.setText(AnnotatedString(localizedMessageText))
                     menuExpanded = false
                 },
             )
@@ -837,7 +839,7 @@ private fun ChatMessageItem(message: ChatMessage, onAction: (ChatAction) -> Unit
                     )
                 },
                 onClick = {
-                    onAction(ChatAction.MessageShared(message.id))
+                    onAction(ChatAction.MessageShared(localizedMessageText))
                     menuExpanded = false
                 },
             )
@@ -905,6 +907,27 @@ private val MessageAuthor.stringRes: StringResource
         MessageAuthor.System -> Res.string.chat_author_system
         MessageAuthor.Error -> Res.string.chat_author_error
     }
+
+@Composable
+private fun ChatMessage.localizedText(): String = error?.localizedText() ?: text
+
+@Composable
+private fun ChatSummary.localizedPreview(): String =
+    lastMessageError?.localizedText() ?: lastMessagePreview ?: stringResource(Res.string.chat_no_preview)
+
+@Composable
+private fun AgentExecutionError.localizedText(): String = stringResource(
+    when (this) {
+        AgentExecutionError.ProviderNotConfigured -> Res.string.chat_agent_error_provider_not_configured
+        AgentExecutionError.MissingCredential -> Res.string.chat_agent_error_missing_credential
+        AgentExecutionError.CredentialLocked -> Res.string.chat_agent_error_credential_locked
+        AgentExecutionError.Network -> Res.string.chat_agent_error_network
+        AgentExecutionError.Authentication -> Res.string.chat_agent_error_authentication
+        AgentExecutionError.ModelUnavailable -> Res.string.chat_agent_error_model_unavailable
+        AgentExecutionError.CorsBlocked -> Res.string.chat_agent_error_cors_blocked
+        is AgentExecutionError.RequestFailed -> Res.string.chat_agent_error_request_failed
+    },
+)
 
 private const val NEAR_LATEST_ITEM_THRESHOLD = 2
 

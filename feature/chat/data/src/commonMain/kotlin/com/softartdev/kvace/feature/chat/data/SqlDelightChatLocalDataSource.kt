@@ -6,6 +6,7 @@ import app.cash.sqldelight.async.coroutines.awaitAsOneOrNull
 import com.softartdev.kvace.feature.chat.data.local.ChatDatabase
 import com.softartdev.kvace.feature.chat.data.local.ChatDatabaseDriverFactory
 import com.softartdev.kvace.feature.chat.domain.ChatMessage
+import com.softartdev.kvace.feature.agent.domain.AgentExecutionError
 import com.softartdev.kvace.feature.chat.domain.ChatSummary
 import com.softartdev.kvace.feature.chat.domain.Conversation
 import com.softartdev.kvace.feature.chat.domain.MessageAuthor
@@ -49,6 +50,7 @@ class SqlDelightChatLocalDataSource(
         createdAtMillis: Long,
         generatedByModelName: String?,
         generatedAtMillis: Long?,
+        error: AgentExecutionError?,
     ): ChatMessage {
         val database = database()
         return database.transactionWithResult {
@@ -59,6 +61,7 @@ class SqlDelightChatLocalDataSource(
                 created_at_millis = createdAtMillis,
                 generated_by_model_name = generatedByModelName,
                 generated_at_millis = generatedAtMillis,
+                error_type = error?.toStorageValue(),
             )
             database.chatQueries.touchChat(
                 updated_at_millis = createdAtMillis,
@@ -72,6 +75,7 @@ class SqlDelightChatLocalDataSource(
                 createdAtMillis = createdAtMillis,
                 generatedByModelName = generatedByModelName,
                 generatedAtMillis = generatedAtMillis,
+                error = error,
             )
         }
     }

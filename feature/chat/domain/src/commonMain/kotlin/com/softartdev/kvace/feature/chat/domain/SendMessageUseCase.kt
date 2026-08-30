@@ -3,7 +3,6 @@ package com.softartdev.kvace.feature.chat.domain
 import com.softartdev.kvace.feature.agent.domain.AgentConversationMessage
 import com.softartdev.kvace.feature.agent.domain.AgentConfigurationRepository
 import com.softartdev.kvace.feature.agent.domain.AgentExecutionEvent
-import com.softartdev.kvace.feature.agent.domain.AgentExecutionError
 import com.softartdev.kvace.feature.agent.domain.AgentProviderConfig
 import com.softartdev.kvace.feature.agent.domain.AgentRequest
 import com.softartdev.kvace.feature.agent.domain.AgentRuntime
@@ -121,8 +120,9 @@ class SendMessageUseCase(
                     chatRepository.appendMessage(
                         conversationId = conversationId,
                         author = MessageAuthor.Error,
-                        text = response.error.userMessage(),
+                        text = "",
                         generatedByModelName = generatedByModelName,
+                        error = response.error,
                     )
                 }
             }
@@ -152,15 +152,4 @@ class SendMessageUseCase(
             message.copy(text = text, generatedByModelName = generatedByModelName)
         }
     }
-}
-
-private fun AgentExecutionError.userMessage(): String = when (this) {
-    AgentExecutionError.ProviderNotConfigured -> "Configure an agent provider before sending messages."
-    AgentExecutionError.MissingCredential -> "Add an API key before using this provider."
-    AgentExecutionError.CredentialLocked -> "Unlock the credential store before using this provider."
-    AgentExecutionError.Network -> "The provider could not be reached."
-    AgentExecutionError.Authentication -> "The provider rejected the API key."
-    AgentExecutionError.ModelUnavailable -> "The selected model is unavailable."
-    AgentExecutionError.CorsBlocked -> "The browser blocked this provider endpoint because of CORS."
-    is AgentExecutionError.RequestFailed -> detail ?: "The provider request failed."
 }

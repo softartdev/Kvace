@@ -33,7 +33,7 @@ sealed interface ChatAction {
     data class ChatSelected(val id: Long) : ChatAction
     data class InputChanged(val text: String) : ChatAction
     data class MessageDeleted(val messageId: Long) : ChatAction
-    data class MessageShared(val messageId: Long) : ChatAction
+    data class MessageShared(val text: String) : ChatAction
     data class RenameChatRequested(val id: Long) : ChatAction
     data class RenameChatInputChanged(val title: String) : ChatAction
     data class DeleteChatRequested(val id: Long) : ChatAction

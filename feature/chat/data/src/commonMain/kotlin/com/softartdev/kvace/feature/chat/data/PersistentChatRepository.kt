@@ -2,6 +2,7 @@ package com.softartdev.kvace.feature.chat.data
 
 import co.touchlab.kermit.Logger
 import com.softartdev.kvace.feature.chat.domain.ChatMessage
+import com.softartdev.kvace.feature.agent.domain.AgentExecutionError
 import com.softartdev.kvace.feature.chat.domain.ChatRepository
 import com.softartdev.kvace.feature.chat.domain.ChatSummary
 import com.softartdev.kvace.feature.chat.domain.Conversation
@@ -58,6 +59,7 @@ class PersistentChatRepository(
         text: String,
         generatedByModelName: String?,
         generatedAtMillis: Long?,
+        error: AgentExecutionError?,
     ): ChatMessage = writeMutex.withLock {
         val createdAtMillis = currentTimeMillis()
         val message = localDataSource.appendMessage(
@@ -67,6 +69,7 @@ class PersistentChatRepository(
             createdAtMillis = createdAtMillis,
             generatedByModelName = generatedByModelName,
             generatedAtMillis = generatedAtMillis ?: generatedByModelName?.let { createdAtMillis },
+            error = error,
         )
         if (author == MessageAuthor.User) {
             text.toAutomaticChatTitle()

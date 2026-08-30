@@ -5,6 +5,7 @@ import com.softartdev.kvace.core.presentation.SnackbarInteractor
 import com.softartdev.kvace.core.presentation.SnackbarMessage
 import com.softartdev.kvace.core.presentation.TextShareInteractor
 import com.softartdev.kvace.feature.chat.domain.ChatMessage
+import com.softartdev.kvace.feature.agent.domain.AgentExecutionError
 import com.softartdev.kvace.feature.chat.domain.ChatRepository
 import com.softartdev.kvace.feature.chat.domain.ChatSummary
 import com.softartdev.kvace.feature.chat.domain.Conversation
@@ -159,7 +160,7 @@ class ChatViewModelTest {
         val viewModel = createViewModel(repository = repository, shareInteractor = shareInteractor)
         viewModel.observeChats()
 
-        viewModel.onAction(ChatAction.MessageShared(1L))
+        viewModel.onAction(ChatAction.MessageShared("Share me"))
 
         assertEquals("Share me", shareInteractor.sharedText)
     }
@@ -184,7 +185,7 @@ class ChatViewModelTest {
         )
         viewModel.observeChats()
 
-        viewModel.onAction(ChatAction.MessageShared(1L))
+        viewModel.onAction(ChatAction.MessageShared("Share me"))
 
         assertEquals(
             SnackbarMessage.Text(value = "No share target", copyable = true),
@@ -207,7 +208,7 @@ class ChatViewModelTest {
         val viewModel = createViewModel(repository = repository, snackbarInteractor = snackbarInteractor)
         viewModel.observeChats()
 
-        viewModel.onAction(ChatAction.MessageShared(1L))
+        viewModel.onAction(ChatAction.MessageShared("Share me"))
 
         assertEquals(emptyList(), snackbarInteractor.messages)
     }
@@ -364,6 +365,7 @@ private class FakeChatRepository(
         text: String,
         generatedByModelName: String?,
         generatedAtMillis: Long?,
+        error: AgentExecutionError?,
     ): ChatMessage {
         val message = ChatMessage(
             id = nextMessageId++,
@@ -372,6 +374,7 @@ private class FakeChatRepository(
             createdAtMillis = 0L,
             generatedByModelName = generatedByModelName,
             generatedAtMillis = generatedAtMillis,
+            error = error,
         )
         updateConversation(conversationId) { conversation ->
             conversation.copy(messages = conversation.messages + message)
@@ -440,6 +443,7 @@ private class FakeChatRepository(
         id = id,
         title = title,
         lastMessagePreview = messages.lastOrNull()?.text,
+        lastMessageError = messages.lastOrNull()?.error,
         updatedAtMillis = updatedAtMillis,
         messageCount = messages.size.toLong(),
     )

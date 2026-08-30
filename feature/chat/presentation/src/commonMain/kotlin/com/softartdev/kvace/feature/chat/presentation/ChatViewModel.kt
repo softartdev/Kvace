@@ -62,7 +62,7 @@ class ChatViewModel(
         is ChatAction.ChatSelected -> selectChat(action.id)
         is ChatAction.InputChanged -> uiState.update { it.copy(inputText = action.text) }
         is ChatAction.MessageDeleted -> deleteMessage(action.messageId)
-        is ChatAction.MessageShared -> shareMessage(action.messageId)
+        is ChatAction.MessageShared -> shareMessage(action.text)
         is ChatAction.RenameChatInputChanged -> uiState.update {
             it.copy(renameDialog = it.renameDialog?.copy(titleInput = action.title))
         }
@@ -143,11 +143,10 @@ class ChatViewModel(
         }
     }
 
-    private fun shareMessage(messageId: Long) = try {
-        val message = uiState.value.messages.first { it.id == messageId }
-        textShareInteractor.shareText(message.text)
+    private fun shareMessage(text: String) = try {
+        textShareInteractor.shareText(text)
     } catch (error: Throwable) {
-        logger.e(error) { "Failed to share message $messageId" }
+        logger.e(error) { "Failed to share message" }
         val snackbarMessage = error.message?.let { msg: String ->
             SnackbarMessage.Text(value = msg, copyable = true)
         } ?: SnackbarMessage.Resource(SnackbarMessageResource.ChatShareFailed)

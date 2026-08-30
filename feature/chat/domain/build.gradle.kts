@@ -8,7 +8,7 @@ kotlin {
     }
     sourceSets {
         commonMain.dependencies {
-            implementation(projects.feature.agent.domain)
+            api(projects.feature.agent.domain)
             implementation(libs.kotlinx.coroutines.core)
         }
         commonTest.dependencies {

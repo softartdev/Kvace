@@ -1,6 +1,7 @@
 package com.softartdev.kvace.feature.chat.data
 
 import com.softartdev.kvace.feature.chat.domain.ChatMessage
+import com.softartdev.kvace.feature.agent.domain.AgentExecutionError
 import com.softartdev.kvace.feature.chat.domain.ChatSummary
 import com.softartdev.kvace.feature.chat.domain.Conversation
 import com.softartdev.kvace.feature.chat.domain.MessageAuthor
@@ -30,7 +31,7 @@ class PersistentChatRepositoryTest {
         val repository = PersistentChatRepository(localDataSource)
         repository.selectConversation(conversation.id)
 
-        localDataSource.appendMessage(conversation.id, MessageAuthor.User, "Persisted", 1L, null, null)
+        localDataSource.appendMessage(conversation.id, MessageAuthor.User, "Persisted", 1L, null, null, null)
         repository.loadChats()
 
         assertEquals("Persisted", repository.chatSummaries.value.single().lastMessagePreview)
@@ -168,6 +169,7 @@ private class FakeChatLocalDataSource : ChatLocalDataSource {
         createdAtMillis: Long,
         generatedByModelName: String?,
         generatedAtMillis: Long?,
+        error: AgentExecutionError?,
     ): ChatMessage {
         val message = ChatMessage(
             id = nextMessageId++,
@@ -176,6 +178,7 @@ private class FakeChatLocalDataSource : ChatLocalDataSource {
             createdAtMillis = createdAtMillis,
             generatedByModelName = generatedByModelName,
             generatedAtMillis = generatedAtMillis,
+            error = error,
         )
         updateConversation(conversationId) { conversation ->
             conversation.copy(
@@ -263,6 +266,7 @@ private class FakeChatLocalDataSource : ChatLocalDataSource {
         id = id,
         title = title,
         lastMessagePreview = messages.lastOrNull()?.text,
+        lastMessageError = messages.lastOrNull()?.error,
         updatedAtMillis = updatedAtMillis,
         messageCount = messages.size.toLong(),
     )
