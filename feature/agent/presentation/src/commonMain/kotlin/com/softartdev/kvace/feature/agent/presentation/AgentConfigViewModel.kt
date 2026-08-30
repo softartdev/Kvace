@@ -5,7 +5,11 @@ import androidx.lifecycle.viewModelScope
 import co.touchlab.kermit.Logger
 import com.softartdev.kvace.core.domain.util.CoroutineDispatchers
 import com.softartdev.kvace.feature.agent.domain.AgentConfigurationRepository
+import com.softartdev.kvace.feature.agent.domain.AgentConnectionTestResult
+import com.softartdev.kvace.feature.agent.domain.AgentConnectionTester
 import com.softartdev.kvace.feature.agent.domain.AgentProviderId
+import com.softartdev.kvace.feature.agent.domain.ProviderCredentialRepository
+import com.softartdev.kvace.feature.agent.domain.ProviderCredentialResult
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -17,6 +21,8 @@ import kotlinx.coroutines.launch
 
 class AgentConfigViewModel(
     private val repository: AgentConfigurationRepository,
+    private val credentialRepository: ProviderCredentialRepository,
+    private val connectionTester: AgentConnectionTester,
     private val dispatchers: CoroutineDispatchers,
 ) : ViewModel() {
     private val logger = Logger.withTag("AgentConfigViewModel")
@@ -46,6 +52,12 @@ class AgentConfigViewModel(
                     } else {
                         state.openAiModelInput
                     },
+                    openAiEndpointInput = if (shouldInitializeOpenAiModel) {
+                        openAiProvider.endpoint.orEmpty()
+                    } else {
+                        state.openAiEndpointInput
+                    },
+                    openAiCredentialStatus = credentialRepository.openAiStatus.value,
                 )
             }
             if (shouldInitializeOpenAiModel) {
@@ -64,6 +76,11 @@ class AgentConfigViewModel(
     fun onAction(action: AgentConfigAction) {
         when (action) {
             is AgentConfigAction.OpenAiModelChanged -> updateOpenAiModel(action.modelName)
+            is AgentConfigAction.OpenAiEndpointChanged -> updateOpenAiEndpoint(action.endpoint)
+            is AgentConfigAction.OpenAiApiKeySubmitted -> saveAndVerifyOpenAiKey(action.apiKey)
+            AgentConfigAction.OpenAiCredentialDeleted -> deleteOpenAiKey()
+            is AgentConfigAction.OpenAiStorageUnlocked -> unlockOpenAiStorage(action.masterPassword)
+            AgentConfigAction.OpenAiLockedCredentialCleared -> clearLockedCredential()
             is AgentConfigAction.ProviderSelected -> selectProvider(action.id)
         }
     }
@@ -87,8 +104,56 @@ class AgentConfigViewModel(
             val provider = repository.providers.value
                 .firstOrNull { it.id == AgentProviderId.OpenAI }
                 ?: return@launch
-            repository.updateProvider(provider.copy(modelName = trimmedModelName))
+            repository.updateProvider(provider.copy(modelName = trimmedModelName, isConfigured = false))
             logger.i { "Updated provider model: ${AgentProviderId.OpenAI}" }
+        }
+    }
+
+    private fun updateOpenAiEndpoint(endpoint: String) {
+        uiState.update { it.copy(openAiEndpointInput = endpoint, openAiConnectionStatus = OpenAiConnectionStatus.Idle) }
+        openAiModelUpdateJob?.cancel()
+        openAiModelUpdateJob = viewModelScope.launch(dispatchers.io) {
+            val provider = repository.providers.value.firstOrNull { it.id == AgentProviderId.OpenAI } ?: return@launch
+            runCatching { repository.updateProvider(provider.copy(endpoint = endpoint, isConfigured = false)) }
+                .onFailure { uiState.update { state -> state.copy(openAiConnectionStatus = OpenAiConnectionStatus.Failure(null)) } }
+        }
+    }
+
+    private fun saveAndVerifyOpenAiKey(apiKey: String) = viewModelScope.launch(dispatchers.io) {
+        uiState.update { it.copy(openAiConnectionStatus = OpenAiConnectionStatus.Verifying) }
+        when (credentialRepository.saveOpenAiApiKey(apiKey)) {
+            ProviderCredentialResult.Success -> verifyOpenAiProvider()
+            else -> uiState.update { it.copy(openAiConnectionStatus = OpenAiConnectionStatus.Failure(null)) }
+        }
+    }
+
+    private fun deleteOpenAiKey() = viewModelScope.launch(dispatchers.io) {
+        credentialRepository.deleteOpenAiApiKey()
+        repository.providers.value.firstOrNull { it.id == AgentProviderId.OpenAI }?.let { provider ->
+            repository.updateProvider(provider.copy(isConfigured = false))
+        }
+    }
+
+    private fun unlockOpenAiStorage(masterPassword: String) = viewModelScope.launch(dispatchers.io) {
+        credentialRepository.unlockOpenAiApiKey(masterPassword)
+        uiState.update { it.copy(openAiCredentialStatus = credentialRepository.openAiStatus.value) }
+    }
+
+    private fun clearLockedCredential() = viewModelScope.launch(dispatchers.io) {
+        credentialRepository.clearLockedOpenAiApiKey()
+        uiState.update { it.copy(openAiCredentialStatus = credentialRepository.openAiStatus.value) }
+    }
+
+    private suspend fun verifyOpenAiProvider() {
+        val provider = repository.providers.value.firstOrNull { it.id == AgentProviderId.OpenAI } ?: return
+        when (val result = connectionTester.testConnection(provider)) {
+            AgentConnectionTestResult.Success -> {
+                repository.updateProvider(provider.copy(isConfigured = true))
+                uiState.update { it.copy(openAiConnectionStatus = OpenAiConnectionStatus.Success) }
+            }
+            is AgentConnectionTestResult.Failure -> uiState.update {
+                it.copy(openAiConnectionStatus = OpenAiConnectionStatus.Failure(result.message))
+            }
         }
     }
 }

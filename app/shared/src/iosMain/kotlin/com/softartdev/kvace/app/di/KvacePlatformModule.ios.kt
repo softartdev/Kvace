@@ -6,6 +6,8 @@ import com.softartdev.kvace.core.data.settings.PersistentSettingsFactory
 import com.softartdev.kvace.core.presentation.TextShareInteractor
 import com.softartdev.kvace.feature.agent.data.DefaultOllamaEndpointProvider
 import com.softartdev.kvace.feature.agent.data.OnDeviceModelProvider
+import com.softartdev.kvace.feature.agent.data.OpenAiCredentialStorage
+import com.softartdev.kvace.feature.agent.data.IosOpenAiCredentialStorage
 import com.softartdev.kvace.feature.agent.data.OllamaEndpointProvider
 import com.softartdev.kvace.feature.agent.data.com.softartdev.kvace.feature.agent.data.IosShellCommandExecutor
 import com.softartdev.kvace.feature.agent.domain.ShellCommandExecutor
@@ -19,6 +21,7 @@ internal actual val kvacePlatformModule = module {
     singleOf(::ApplePersistentSettingsFactory) bind PersistentSettingsFactory::class
     singleOf(::DefaultOllamaEndpointProvider) bind OllamaEndpointProvider::class
     singleOf(::AppleOnDeviceModelProvider) bind OnDeviceModelProvider::class
+    singleOf(::IosOpenAiCredentialStorage) bind OpenAiCredentialStorage::class
     singleOf(::IosShellCommandExecutor) bind ShellCommandExecutor::class
     singleOf(::IosChatDatabaseDriverFactory) bind ChatDatabaseDriverFactory::class
     singleOf(::IosTextShareInteractor) bind TextShareInteractor::class

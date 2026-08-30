@@ -59,7 +59,11 @@ Windows, Linux, and Web/Wasm keep the provider visible but unavailable.
 
 ## Hosted Providers
 
-OpenAI is listed as a future provider. It is intentionally not executable yet because hosted providers need secure credential storage for API keys and tokens.
+OpenAI supports the official API by default and any OpenAI-compatible base URL. Users enter a model ID and verify the
+stored API key against the selected model before the provider becomes executable. Android stores the key with an
+Android Keystore encryption key, iOS uses Keychain, and Desktop prefers the system keychain before falling back to a
+master-password-encrypted local file. Web/Wasm keeps the key only in memory and requires the configured endpoint to
+allow browser CORS requests.
 
 Credential storage requirements:
 

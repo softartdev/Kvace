@@ -6,6 +6,9 @@ import com.softartdev.kvace.feature.agent.domain.AgentConfigurationRepository
 import com.softartdev.kvace.feature.agent.domain.AgentProviderConfig
 import com.softartdev.kvace.feature.agent.domain.AgentProviderId
 import com.softartdev.kvace.feature.agent.domain.OllamaEndpointValidator
+import com.softartdev.kvace.feature.agent.domain.OpenAiEndpointValidator
+import com.softartdev.kvace.feature.agent.domain.ProviderCredentialRepository
+import com.softartdev.kvace.feature.agent.domain.ProviderCredentialStatus
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
@@ -13,6 +16,8 @@ class SettingsAgentConfigurationRepository(
     private val ollamaEndpointProvider: OllamaEndpointProvider,
     private val ollamaEndpointValidator: OllamaEndpointValidator,
     private val onDeviceModelProvider: OnDeviceModelProvider,
+    private val credentialRepository: ProviderCredentialRepository,
+    private val openAiEndpointValidator: OpenAiEndpointValidator,
     settingsFactory: PersistentSettingsFactory,
 ) : AgentConfigurationRepository {
     private val settings: PersistentSettings = settingsFactory.create(SETTINGS_NAME)
@@ -31,12 +36,17 @@ class SettingsAgentConfigurationRepository(
     }
 
     override suspend fun updateProvider(config: AgentProviderConfig) {
-        saveProvider(config)
-        providers.value = providers.value.map { provider ->
-            if (provider.id == config.id) config else provider
+        val normalizedConfig = if (config.id == AgentProviderId.OpenAI) {
+            config.copy(endpoint = config.endpoint?.let(openAiEndpointValidator::normalize))
+        } else {
+            config
         }
-        if (selectedProvider.value.id == config.id) {
-            selectedProvider.value = config
+        saveProvider(normalizedConfig)
+        providers.value = providers.value.map { provider ->
+            if (provider.id == normalizedConfig.id) normalizedConfig else provider
+        }
+        if (selectedProvider.value.id == normalizedConfig.id) {
+            selectedProvider.value = normalizedConfig
         }
     }
 
@@ -63,7 +73,8 @@ class SettingsAgentConfigurationRepository(
             AgentProviderConfig(
                 id = AgentProviderId.OpenAI,
                 modelName = settings.getStringOrNull(KEY_OPENAI_MODEL) ?: DEFAULT_OPENAI_MODEL,
-                isConfigured = settings.getBoolean(KEY_OPENAI_CONFIGURED, defaultValue = false),
+                endpoint = settings.getStringOrNull(KEY_OPENAI_ENDPOINT) ?: DEFAULT_OPENAI_ENDPOINT,
+                isConfigured = isOpenAiConfigured(),
             ),
         )
     }
@@ -97,10 +108,30 @@ class SettingsAgentConfigurationRepository(
             Unit
         }
         AgentProviderId.OpenAI -> {
+            val endpoint = config.endpoint?.let(openAiEndpointValidator::normalize)
+            require(endpoint != null) { "OpenAI endpoint must be an HTTP(S) base URL." }
             settings.putString(KEY_OPENAI_MODEL, config.modelName)
+            settings.putString(KEY_OPENAI_ENDPOINT, endpoint)
             settings.putBoolean(KEY_OPENAI_CONFIGURED, config.isConfigured)
+            if (config.isConfigured) {
+                settings.putString(KEY_OPENAI_VALIDATED_MODEL, config.modelName)
+                settings.putString(KEY_OPENAI_VALIDATED_ENDPOINT, endpoint)
+            }
+            Unit
         }
         AgentProviderId.OnDevice -> Unit
+    }
+
+    private fun isOpenAiConfigured(): Boolean {
+        val model = settings.getStringOrNull(KEY_OPENAI_MODEL) ?: DEFAULT_OPENAI_MODEL
+        val endpoint = settings.getStringOrNull(KEY_OPENAI_ENDPOINT) ?: DEFAULT_OPENAI_ENDPOINT
+        return settings.getBoolean(KEY_OPENAI_CONFIGURED, defaultValue = false) &&
+            model == settings.getStringOrNull(KEY_OPENAI_VALIDATED_MODEL) &&
+            endpoint == settings.getStringOrNull(KEY_OPENAI_VALIDATED_ENDPOINT) &&
+            credentialRepository.openAiStatus.value in setOf(
+                ProviderCredentialStatus.Stored,
+                ProviderCredentialStatus.SessionOnly,
+            )
     }
 
     private companion object {
@@ -113,8 +144,12 @@ class SettingsAgentConfigurationRepository(
         const val KEY_OLLAMA_VALIDATED_ENDPOINT = "ollama_validated_endpoint"
         const val KEY_OLLAMA_VALIDATED_MODEL = "ollama_validated_model"
         const val KEY_OPENAI_MODEL = "openai_model"
+        const val KEY_OPENAI_ENDPOINT = "openai_endpoint"
         const val KEY_OPENAI_CONFIGURED = "openai_configured"
+        const val KEY_OPENAI_VALIDATED_ENDPOINT = "openai_validated_endpoint"
+        const val KEY_OPENAI_VALIDATED_MODEL = "openai_validated_model"
         const val DEFAULT_OLLAMA_MODEL = "qwen3.5:0.8b"
         const val DEFAULT_OPENAI_MODEL = "gpt-4o"
+        const val DEFAULT_OPENAI_ENDPOINT = "https://api.openai.com"
     }
 }

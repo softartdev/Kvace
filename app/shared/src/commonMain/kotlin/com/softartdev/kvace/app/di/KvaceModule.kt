@@ -10,6 +10,8 @@ import com.softartdev.kvace.feature.agent.data.KoogAgentRuntime
 import com.softartdev.kvace.feature.agent.data.KtorAgentConnectionTester
 import com.softartdev.kvace.feature.agent.data.KtorAgentModelCatalog
 import com.softartdev.kvace.feature.agent.data.KtorOllamaEndpointValidator
+import com.softartdev.kvace.feature.agent.data.DefaultOpenAiEndpointValidator
+import com.softartdev.kvace.feature.agent.data.OpenAiCredentialRepository
 import com.softartdev.kvace.feature.agent.data.SettingsAgentConfigurationRepository
 import com.softartdev.kvace.feature.agent.data.SettingsHarnessConfigurationRepository
 import com.softartdev.kvace.feature.agent.domain.AgentConnectionTester
@@ -18,6 +20,8 @@ import com.softartdev.kvace.feature.agent.domain.AgentModelCatalog
 import com.softartdev.kvace.feature.agent.domain.AgentRuntime
 import com.softartdev.kvace.feature.agent.domain.HarnessConfigurationRepository
 import com.softartdev.kvace.feature.agent.domain.OllamaEndpointValidator
+import com.softartdev.kvace.feature.agent.domain.OpenAiEndpointValidator
+import com.softartdev.kvace.feature.agent.domain.ProviderCredentialRepository
 import com.softartdev.kvace.feature.agent.presentation.AgentConfigViewModel
 import com.softartdev.kvace.feature.agent.presentation.OllamaEndpointSettingsViewModel
 import com.softartdev.kvace.feature.chat.data.ChatLocalDataSource
@@ -44,11 +48,13 @@ val kvaceModule = module {
     singleOf(::ComposeRouter) bind Router::class
     singleOf(::ComposeSnackbarInteractor) bind SnackbarInteractor::class
 
+    singleOf(::OpenAiCredentialRepository) bind ProviderCredentialRepository::class
     singleOf(::SettingsAgentConfigurationRepository) bind AgentConfigurationRepository::class
     singleOf(::SettingsHarnessConfigurationRepository) bind HarnessConfigurationRepository::class
     singleOf(::KtorAgentConnectionTester) bind AgentConnectionTester::class
     singleOf(::KtorAgentModelCatalog) bind AgentModelCatalog::class
     singleOf(::KtorOllamaEndpointValidator) bind OllamaEndpointValidator::class
+    singleOf(::DefaultOpenAiEndpointValidator) bind OpenAiEndpointValidator::class
     singleOf(::KoogAgentRuntime) bind AgentRuntime::class
     viewModelOf(::AgentConfigViewModel)
     viewModelOf(::HarnessSettingsViewModel)

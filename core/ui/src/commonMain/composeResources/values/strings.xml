@@ -87,8 +87,16 @@
     <string name="agents_on_device_available">Available on this platform</string>
     <string name="agents_on_device_unavailable">Unavailable on this platform</string>
     <string name="agents_openai_credentials_title">Credentials</string>
-    <string name="agents_openai_credentials_message">OpenAI execution is disabled until secure credential storage is implemented.</string>
+    <string name="agents_openai_credentials_message">Store and verify an API key before using this provider.</string>
     <string name="agents_openai_model_required">Enter an OpenAI model ID.</string>
+    <string name="agents_openai_endpoint_label">OpenAI-compatible base URL</string>
+    <string name="agents_openai_api_key_label">API key</string>
+    <string name="agents_openai_save_verify">Save and verify</string>
+    <string name="agents_openai_delete_key">Delete API key</string>
+    <string name="agents_openai_status_success">Provider verified</string>
+    <string name="agents_openai_status_failure">Provider verification failed</string>
+    <string name="agents_openai_master_password_label">Credential storage password</string>
+    <string name="agents_openai_unlock_storage">Unlock storage</string>
 
     <string name="settings_title">Settings</string>
     <string name="settings_section_appearance">Appearance</string>

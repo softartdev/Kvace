@@ -4,6 +4,11 @@ import com.softartdev.kvace.core.domain.util.CoroutineDispatchers
 import com.softartdev.kvace.feature.agent.domain.AgentConfigurationRepository
 import com.softartdev.kvace.feature.agent.domain.AgentProviderConfig
 import com.softartdev.kvace.feature.agent.domain.AgentProviderId
+import com.softartdev.kvace.feature.agent.domain.AgentConnectionTestResult
+import com.softartdev.kvace.feature.agent.domain.AgentConnectionTester
+import com.softartdev.kvace.feature.agent.domain.ProviderCredentialRepository
+import com.softartdev.kvace.feature.agent.domain.ProviderCredentialResult
+import com.softartdev.kvace.feature.agent.domain.ProviderCredentialStatus
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -37,6 +42,8 @@ class AgentConfigViewModelTest {
         val repository = FakeAgentConfigurationRepository()
         val viewModel = AgentConfigViewModel(
             repository = repository,
+            credentialRepository = FakeCredentialRepository(),
+            connectionTester = FakeConnectionTester(),
             dispatchers = TestCoroutineDispatchers(dispatcher),
         )
         viewModel.observeProviders()
@@ -51,6 +58,8 @@ class AgentConfigViewModelTest {
         val repository = FakeAgentConfigurationRepository()
         val viewModel = AgentConfigViewModel(
             repository = repository,
+            credentialRepository = FakeCredentialRepository(),
+            connectionTester = FakeConnectionTester(),
             dispatchers = TestCoroutineDispatchers(dispatcher),
         )
         viewModel.selectProvider(AgentProviderId.OnDevice)
@@ -63,6 +72,8 @@ class AgentConfigViewModelTest {
         val repository = FakeAgentConfigurationRepository()
         val viewModel = AgentConfigViewModel(
             repository = repository,
+            credentialRepository = FakeCredentialRepository(),
+            connectionTester = FakeConnectionTester(),
             dispatchers = TestCoroutineDispatchers(dispatcher),
         )
 
@@ -102,8 +113,24 @@ class AgentConfigViewModelTest {
 
     private fun createViewModel(repository: FakeAgentConfigurationRepository) = AgentConfigViewModel(
         repository = repository,
+        credentialRepository = FakeCredentialRepository(),
+        connectionTester = FakeConnectionTester(),
         dispatchers = TestCoroutineDispatchers(dispatcher),
     )
+}
+
+private class FakeCredentialRepository : ProviderCredentialRepository {
+    override val openAiStatus = MutableStateFlow(ProviderCredentialStatus.Absent)
+    override suspend fun readOpenAiApiKey(): String? = null
+    override suspend fun saveOpenAiApiKey(apiKey: String): ProviderCredentialResult = ProviderCredentialResult.Success
+    override suspend fun deleteOpenAiApiKey(): ProviderCredentialResult = ProviderCredentialResult.Success
+    override suspend fun unlockOpenAiApiKey(masterPassword: String): ProviderCredentialResult = ProviderCredentialResult.Success
+    override suspend fun clearLockedOpenAiApiKey(): ProviderCredentialResult = ProviderCredentialResult.Success
+}
+
+private class FakeConnectionTester : AgentConnectionTester {
+    override suspend fun testConnection(config: AgentProviderConfig): AgentConnectionTestResult = AgentConnectionTestResult.Success
+    override suspend fun testBrowserEndpoint(config: AgentProviderConfig): AgentConnectionTestResult = AgentConnectionTestResult.Success
 }
 
 private class FakeAgentConfigurationRepository(

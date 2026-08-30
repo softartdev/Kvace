@@ -8,5 +8,10 @@ internal class KermitKtorLogger(
     private val severity: Severity,
     private val logger: KermitLogger,
 ) : KtorLogger {
-    override fun log(message: String) = logger.log(severity, logger.tag, null, message)
+    override fun log(message: String) = logger.log(severity, logger.tag, null, message.redactAuthorization())
+
+    private fun String.redactAuthorization(): String = replace(
+        Regex("(Authorization: Bearer )[^\\s]+", RegexOption.IGNORE_CASE),
+        "${'$'}1<redacted>",
+    )
 }

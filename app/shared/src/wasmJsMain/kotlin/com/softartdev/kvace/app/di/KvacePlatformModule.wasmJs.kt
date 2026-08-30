@@ -9,6 +9,8 @@ import com.softartdev.kvace.feature.agent.data.DefaultUnavailableOnDeviceModelPr
 import com.softartdev.kvace.feature.agent.data.OnDeviceModelProvider
 import com.softartdev.kvace.feature.agent.data.OllamaEndpointProvider
 import com.softartdev.kvace.feature.agent.data.WebShellCommandExecutor
+import com.softartdev.kvace.feature.agent.data.WebOpenAiCredentialStorage
+import com.softartdev.kvace.feature.agent.data.OpenAiCredentialStorage
 import com.softartdev.kvace.feature.agent.domain.ShellCommandExecutor
 import com.softartdev.kvace.feature.chat.data.local.ChatDatabaseDriverFactory
 import com.softartdev.kvace.feature.chat.data.local.WasmChatDatabaseDriverFactory
@@ -20,6 +22,7 @@ internal actual val kvacePlatformModule = module {
     singleOf(::WasmPersistentSettingsFactory) bind PersistentSettingsFactory::class
     singleOf(::DefaultOllamaEndpointProvider) bind OllamaEndpointProvider::class
     singleOf(::DefaultUnavailableOnDeviceModelProvider) bind OnDeviceModelProvider::class
+    singleOf(::WebOpenAiCredentialStorage) bind OpenAiCredentialStorage::class
     singleOf(::WebShellCommandExecutor) bind ShellCommandExecutor::class
     singleOf(::WasmChatDatabaseDriverFactory) bind ChatDatabaseDriverFactory::class
     singleOf(::WasmTextShareInteractor) bind TextShareInteractor::class

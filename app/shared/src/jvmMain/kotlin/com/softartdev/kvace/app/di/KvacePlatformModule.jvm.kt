@@ -6,6 +6,8 @@ import com.softartdev.kvace.core.data.settings.PersistentSettingsFactory
 import com.softartdev.kvace.core.presentation.TextShareInteractor
 import com.softartdev.kvace.feature.agent.data.DefaultOllamaEndpointProvider
 import com.softartdev.kvace.feature.agent.data.JvmOnDeviceModelProvider
+import com.softartdev.kvace.feature.agent.data.JvmOpenAiCredentialStorage
+import com.softartdev.kvace.feature.agent.data.OpenAiCredentialStorage
 import com.softartdev.kvace.feature.agent.data.JvmShellCommandExecutor
 import com.softartdev.kvace.feature.agent.data.OnDeviceModelProvider
 import com.softartdev.kvace.feature.agent.data.OllamaEndpointProvider
@@ -20,6 +22,7 @@ internal actual val kvacePlatformModule = module {
     singleOf(::JvmPersistentSettingsFactory) bind PersistentSettingsFactory::class
     singleOf(::DefaultOllamaEndpointProvider) bind OllamaEndpointProvider::class
     singleOf(::JvmOnDeviceModelProvider) bind OnDeviceModelProvider::class
+    singleOf(::JvmOpenAiCredentialStorage) bind OpenAiCredentialStorage::class
     single { JvmShellCommandExecutor() } bind ShellCommandExecutor::class
     singleOf(::JvmChatDatabaseDriverFactory) bind ChatDatabaseDriverFactory::class
     singleOf(::JvmTextShareInteractor) bind TextShareInteractor::class

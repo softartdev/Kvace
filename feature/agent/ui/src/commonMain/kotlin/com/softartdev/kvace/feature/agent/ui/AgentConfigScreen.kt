@@ -39,12 +39,15 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.tooling.preview.PreviewParameter
 import androidx.compose.ui.unit.dp
@@ -78,6 +81,14 @@ import com.softartdev.kvace.core.ui.resources.agents_on_device_available
 import com.softartdev.kvace.core.ui.resources.agents_on_device_unavailable
 import com.softartdev.kvace.core.ui.resources.agents_openai_credentials_message
 import com.softartdev.kvace.core.ui.resources.agents_openai_credentials_title
+import com.softartdev.kvace.core.ui.resources.agents_openai_api_key_label
+import com.softartdev.kvace.core.ui.resources.agents_openai_delete_key
+import com.softartdev.kvace.core.ui.resources.agents_openai_endpoint_label
+import com.softartdev.kvace.core.ui.resources.agents_openai_save_verify
+import com.softartdev.kvace.core.ui.resources.agents_openai_status_failure
+import com.softartdev.kvace.core.ui.resources.agents_openai_status_success
+import com.softartdev.kvace.core.ui.resources.agents_openai_master_password_label
+import com.softartdev.kvace.core.ui.resources.agents_openai_unlock_storage
 import com.softartdev.kvace.core.ui.resources.agents_openai_model_required
 import com.softartdev.kvace.core.ui.resources.agents_provider_placeholder_message
 import com.softartdev.kvace.core.ui.resources.agents_provider_placeholder_title
@@ -99,6 +110,8 @@ import com.softartdev.kvace.feature.agent.presentation.OllamaEndpointSettingsUiS
 import com.softartdev.kvace.feature.agent.presentation.OllamaEndpointSettingsViewModel
 import com.softartdev.kvace.feature.agent.presentation.OllamaModelsStatus
 import com.softartdev.kvace.feature.agent.presentation.OpenAiModelValidationError
+import com.softartdev.kvace.feature.agent.presentation.OpenAiConnectionStatus
+import com.softartdev.kvace.feature.agent.domain.ProviderCredentialStatus
 import com.softartdev.theme.material3.PreferableMaterialTheme
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.StringResource
@@ -180,6 +193,9 @@ fun AgentConfigScreen(
                 provider = state.selectedProvider,
                 ollamaState = ollamaState,
                 openAiModelInput = state.openAiModelInput,
+                openAiEndpointInput = state.openAiEndpointInput,
+                openAiConnectionStatus = state.openAiConnectionStatus,
+                openAiCredentialStatus = state.openAiCredentialStatus,
                 openAiModelValidationError = state.openAiModelValidationError,
                 onAction = onAction,
                 onOllamaAction = onOllamaAction,
@@ -236,6 +252,9 @@ private fun ProviderDetailPane(
     provider: AgentProviderConfig?,
     ollamaState: OllamaEndpointSettingsUiState,
     openAiModelInput: String,
+    openAiEndpointInput: String,
+    openAiConnectionStatus: OpenAiConnectionStatus,
+    openAiCredentialStatus: ProviderCredentialStatus,
     openAiModelValidationError: OpenAiModelValidationError?,
     onAction: (AgentConfigAction) -> Unit,
     onOllamaAction: (OllamaEndpointSettingsAction) -> Unit,
@@ -286,10 +305,17 @@ private fun ProviderDetailPane(
                     AgentProviderId.OnDevice -> OnDeviceProviderDetail(provider)
                     AgentProviderId.OpenAI -> OpenAiProviderDetail(
                         modelInput = openAiModelInput,
+                        endpointInput = openAiEndpointInput,
+                        connectionStatus = openAiConnectionStatus,
+                        credentialStatus = openAiCredentialStatus,
                         validationError = openAiModelValidationError,
                         onModelChanged = { modelName ->
                             onAction(AgentConfigAction.OpenAiModelChanged(modelName))
                         },
+                        onEndpointChanged = { endpoint -> onAction(AgentConfigAction.OpenAiEndpointChanged(endpoint)) },
+                        onApiKeySubmitted = { apiKey -> onAction(AgentConfigAction.OpenAiApiKeySubmitted(apiKey)) },
+                        onDeleteKey = { onAction(AgentConfigAction.OpenAiCredentialDeleted) },
+                        onStorageUnlock = { password -> onAction(AgentConfigAction.OpenAiStorageUnlocked(password)) },
                     )
                 }
             }
@@ -401,15 +427,31 @@ private fun OnDeviceProviderDetail(provider: AgentProviderConfig) {
 @Composable
 private fun OpenAiProviderDetail(
     modelInput: String,
+    endpointInput: String,
+    connectionStatus: OpenAiConnectionStatus,
+    credentialStatus: ProviderCredentialStatus,
     validationError: OpenAiModelValidationError?,
     onModelChanged: (String) -> Unit,
+    onEndpointChanged: (String) -> Unit,
+    onApiKeySubmitted: (String) -> Unit,
+    onDeleteKey: () -> Unit,
+    onStorageUnlock: (String) -> Unit,
 ) {
+    var apiKey: String by remember { androidx.compose.runtime.mutableStateOf("") }
+    var masterPassword: String by remember { androidx.compose.runtime.mutableStateOf("") }
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
+        OutlinedTextField(
+            modifier = Modifier.fillMaxWidth(),
+            value = endpointInput,
+            onValueChange = onEndpointChanged,
+            label = { Text(stringResource(Res.string.agents_openai_endpoint_label)) },
+            singleLine = true,
+        )
         OutlinedTextField(
             modifier = Modifier
                 .fillMaxWidth()
@@ -436,6 +478,50 @@ private fun OpenAiProviderDetail(
             style = MaterialTheme.typography.labelLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+        if (credentialStatus == ProviderCredentialStatus.Locked) {
+            OutlinedTextField(
+                modifier = Modifier.fillMaxWidth(),
+                value = masterPassword,
+                onValueChange = { masterPassword = it },
+                label = { Text(stringResource(Res.string.agents_openai_master_password_label)) },
+                visualTransformation = PasswordVisualTransformation(),
+                singleLine = true,
+            )
+            OutlinedButton(
+                onClick = {
+                    onStorageUnlock(masterPassword)
+                    masterPassword = ""
+                },
+                enabled = masterPassword.isNotBlank(),
+            ) {
+                Text(stringResource(Res.string.agents_openai_unlock_storage))
+            }
+        }
+        OutlinedTextField(
+            modifier = Modifier.fillMaxWidth(),
+            value = apiKey,
+            onValueChange = { apiKey = it },
+            label = { Text(stringResource(Res.string.agents_openai_api_key_label)) },
+            visualTransformation = PasswordVisualTransformation(),
+            singleLine = true,
+        )
+        Button(
+            onClick = {
+                onApiKeySubmitted(apiKey)
+                apiKey = ""
+            },
+            enabled = apiKey.isNotBlank() && connectionStatus !is OpenAiConnectionStatus.Verifying,
+        ) {
+            Text(stringResource(Res.string.agents_openai_save_verify))
+        }
+        OutlinedButton(onClick = onDeleteKey) {
+            Text(stringResource(Res.string.agents_openai_delete_key))
+        }
+        when (connectionStatus) {
+            OpenAiConnectionStatus.Success -> Text(stringResource(Res.string.agents_openai_status_success))
+            is OpenAiConnectionStatus.Failure -> Text(stringResource(Res.string.agents_openai_status_failure))
+            else -> Unit
+        }
         Text(
             text = stringResource(Res.string.agents_openai_credentials_message),
             color = MaterialTheme.colorScheme.onSurfaceVariant,

@@ -42,6 +42,7 @@ kotlin {
             dependencies {
                 implementation(libs.koog.prompt.executor.model)
                 implementation(libs.koog.prompt.executor.ollama.client)
+                implementation(libs.koog.prompt.executor.openai.client)
                 implementation(libs.koog.agents.tools)
                 implementation(libs.koog.http.client.ktor)
                 implementation(libs.ktor.client.cio)
@@ -60,6 +61,9 @@ kotlin {
         androidMain.dependencies {
             implementation(libs.androidx.core.ktx)
             implementation(libs.mlkit.genai.prompt)
+        }
+        jvmMain.dependencies {
+            implementation(libs.appdirs)
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)

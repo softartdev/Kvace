@@ -19,6 +19,22 @@ data class AgentProviderConfig(
     val isConfigured: Boolean = false,
 )
 
+enum class ProviderCredentialStatus {
+    Absent,
+    Stored,
+    Locked,
+    SessionOnly,
+    Unavailable,
+}
+
+sealed interface ProviderCredentialResult {
+    data object Success : ProviderCredentialResult
+    data object Invalid : ProviderCredentialResult
+    data object Locked : ProviderCredentialResult
+    data object Unavailable : ProviderCredentialResult
+    data class Failure(val reason: String? = null) : ProviderCredentialResult
+}
+
 data class ValidatedOllamaEndpoint(
     val value: String,
     val host: String,
@@ -34,6 +50,10 @@ sealed interface OllamaEndpointValidationResult {
 interface OllamaEndpointValidator {
     fun validate(hostInput: String, portInput: String): OllamaEndpointValidationResult
     fun parse(endpoint: String): ValidatedOllamaEndpoint?
+}
+
+interface OpenAiEndpointValidator {
+    fun normalize(input: String): String?
 }
 
 data class AgentRequest(
@@ -65,7 +85,18 @@ sealed interface AgentExecutionEvent {
     data class ToolCallDelta(val text: String) : AgentExecutionEvent
     data class ToolCall(val text: String) : AgentExecutionEvent
     data class StreamFinished(val finishReason: String?) : AgentExecutionEvent
-    data class Error(val message: String) : AgentExecutionEvent
+    data class Error(val error: AgentExecutionError) : AgentExecutionEvent
+}
+
+sealed interface AgentExecutionError {
+    data object ProviderNotConfigured : AgentExecutionError
+    data object MissingCredential : AgentExecutionError
+    data object CredentialLocked : AgentExecutionError
+    data object Network : AgentExecutionError
+    data object Authentication : AgentExecutionError
+    data object ModelUnavailable : AgentExecutionError
+    data object CorsBlocked : AgentExecutionError
+    data class RequestFailed(val detail: String? = null) : AgentExecutionError
 }
 
 sealed class AgentRuntimeException(message: String) : RuntimeException(message) {
@@ -83,6 +114,7 @@ sealed interface AgentConnectionTestResult {
 
 interface AgentConnectionTester {
     suspend fun testConnection(config: AgentProviderConfig): AgentConnectionTestResult
+    suspend fun testBrowserEndpoint(config: AgentProviderConfig): AgentConnectionTestResult
 }
 
 sealed interface AgentModelListResult {
@@ -99,6 +131,15 @@ interface AgentConfigurationRepository {
     val selectedProvider: StateFlow<AgentProviderConfig?>
     suspend fun selectProvider(id: AgentProviderId)
     suspend fun updateProvider(config: AgentProviderConfig)
+}
+
+interface ProviderCredentialRepository {
+    val openAiStatus: StateFlow<ProviderCredentialStatus>
+    suspend fun readOpenAiApiKey(): String?
+    suspend fun saveOpenAiApiKey(apiKey: String): ProviderCredentialResult
+    suspend fun deleteOpenAiApiKey(): ProviderCredentialResult
+    suspend fun unlockOpenAiApiKey(masterPassword: String): ProviderCredentialResult
+    suspend fun clearLockedOpenAiApiKey(): ProviderCredentialResult
 }
 
 interface HarnessConfigurationRepository {

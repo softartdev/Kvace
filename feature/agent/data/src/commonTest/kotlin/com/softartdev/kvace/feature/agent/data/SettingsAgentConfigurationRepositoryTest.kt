@@ -4,6 +4,10 @@ import com.softartdev.kvace.core.data.settings.InMemoryPersistentSettingsFactory
 import com.softartdev.kvace.core.data.settings.PersistentSettings
 import com.softartdev.kvace.core.data.settings.PersistentSettingsFactory
 import com.softartdev.kvace.feature.agent.domain.AgentProviderId
+import com.softartdev.kvace.feature.agent.domain.ProviderCredentialRepository
+import com.softartdev.kvace.feature.agent.domain.ProviderCredentialResult
+import com.softartdev.kvace.feature.agent.domain.ProviderCredentialStatus
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -157,6 +161,8 @@ class SettingsAgentConfigurationRepositoryTest {
             ollamaEndpointProvider = StaticOllamaEndpointProvider(LOOPBACK_HOST),
             ollamaEndpointValidator = KtorOllamaEndpointValidator(),
             onDeviceModelProvider = FakeOnDeviceModelProvider(),
+            credentialRepository = FakeCredentialRepository(),
+            openAiEndpointValidator = DefaultOpenAiEndpointValidator(),
             settingsFactory = FailingPersistentSettingsFactory(),
         )
         val original = repository.providers.value.first { it.id == AgentProviderId.Ollama }
@@ -175,6 +181,8 @@ class SettingsAgentConfigurationRepositoryTest {
         ollamaEndpointProvider = StaticOllamaEndpointProvider(LOOPBACK_HOST),
         ollamaEndpointValidator = KtorOllamaEndpointValidator(),
         onDeviceModelProvider = onDeviceModelProvider,
+        credentialRepository = FakeCredentialRepository(),
+        openAiEndpointValidator = DefaultOpenAiEndpointValidator(),
         settingsFactory = settingsFactory,
     )
 
@@ -183,6 +191,15 @@ class SettingsAgentConfigurationRepositoryTest {
 
     private fun SettingsAgentConfigurationRepository.ollamaProvider() =
         providers.value.first { it.id == AgentProviderId.Ollama }
+}
+
+private class FakeCredentialRepository : ProviderCredentialRepository {
+    override val openAiStatus = MutableStateFlow(ProviderCredentialStatus.Absent)
+    override suspend fun readOpenAiApiKey(): String? = null
+    override suspend fun saveOpenAiApiKey(apiKey: String): ProviderCredentialResult = ProviderCredentialResult.Success
+    override suspend fun deleteOpenAiApiKey(): ProviderCredentialResult = ProviderCredentialResult.Success
+    override suspend fun unlockOpenAiApiKey(masterPassword: String): ProviderCredentialResult = ProviderCredentialResult.Success
+    override suspend fun clearLockedOpenAiApiKey(): ProviderCredentialResult = ProviderCredentialResult.Success
 }
 
 private class FailingPersistentSettingsFactory : PersistentSettingsFactory {

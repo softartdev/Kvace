@@ -4,6 +4,7 @@ import com.softartdev.kvace.feature.agent.domain.AgentConversationMessage
 import com.softartdev.kvace.feature.agent.domain.AgentConversationRole
 import com.softartdev.kvace.feature.agent.domain.AgentConfigurationRepository
 import com.softartdev.kvace.feature.agent.domain.AgentExecutionEvent
+import com.softartdev.kvace.feature.agent.domain.AgentExecutionError
 import com.softartdev.kvace.feature.agent.domain.AgentProviderConfig
 import com.softartdev.kvace.feature.agent.domain.AgentProviderId
 import com.softartdev.kvace.feature.agent.domain.AgentRequest
@@ -73,7 +74,7 @@ class SendMessageUseCaseTest {
         val repository = FakeChatRepository()
         val useCase = SendMessageUseCase(
             chatRepository = repository,
-            agentRuntime = FakeAgentRuntime(AgentExecutionEvent.Error("Provider failed")),
+            agentRuntime = FakeAgentRuntime(AgentExecutionEvent.Error(AgentExecutionError.RequestFailed("Provider failed"))),
             agentConfigurationRepository = FakeAgentConfigurationRepository(),
         )
 

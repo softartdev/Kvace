@@ -3,14 +3,21 @@ package com.softartdev.kvace.feature.agent.data
 import io.ktor.client.HttpClientConfig
 import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.request.get
+import io.ktor.client.request.header
 import io.ktor.client.statement.bodyAsText
 
-internal suspend fun fetchAgentEndpointStatus(url: String, timeoutMillis: Long): Int {
+internal suspend fun fetchAgentEndpointStatus(
+    url: String,
+    timeoutMillis: Long,
+    authorization: String? = null,
+): Int {
     val client = createAgentHttpClient(tag = "Ktor/AgentEndpointStatus") {
         installEndpointTimeout(timeoutMillis)
     }
     return try {
-        client.get(url).status.value
+        client.get(url) {
+            authorization?.let { header("Authorization", "Bearer $it") }
+        }.status.value
     } finally {
         client.close()
     }

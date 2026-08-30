@@ -276,6 +276,8 @@ private class FakeAgentConnectionTester(
         callCount++
         return result
     }
+
+    override suspend fun testBrowserEndpoint(config: AgentProviderConfig): AgentConnectionTestResult = testConnection(config)
 }
 
 private class FakeAgentModelCatalog(

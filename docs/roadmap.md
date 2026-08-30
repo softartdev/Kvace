@@ -52,8 +52,8 @@ Validation gate:
 - [x] Add provider-specific validation for model names and endpoints. Ollama endpoints are normalized and models must
   come from the server catalog; OpenAI accepts any non-blank trimmed model ID while remaining unconfigured until
   secure credentials are implemented.
-- Add secure API-key storage design for OpenAI and other hosted providers.
-- Keep secrets out of common UI and avoid browser-side secret storage for real hosted-provider execution.
+- [x] Add secure API-key storage for OpenAI and OpenAI-compatible endpoints.
+- Keep secrets out of persisted common UI state; Web/Wasm API keys remain an opt-in in-memory CORS-gated experiment.
 - Add import/export or reset behavior only after the persistence model is stable.
 
 ## Phase 3: Richer Agent Execution
