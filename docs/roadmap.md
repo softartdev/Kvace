@@ -55,8 +55,7 @@ Validation gate:
   come from the server catalog; OpenAI-compatible endpoints are normalized and require successful credential/model verification.
 - [x] Add secure API-key storage for OpenAI and OpenAI-compatible endpoints.
 - [x] Keep secrets out of persisted common UI state; Web/Wasm API keys remain an opt-in in-memory CORS-gated experiment.
-- [ ] Add provider reset behavior after the persistence model is stable. Implementation and automated verification are
-  complete; the item remains open until both mandatory visual gates pass.
+- [x] Add provider reset behavior after the persistence model is stable.
 
 ## Phase 3: Richer Agent Execution
 

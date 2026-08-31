@@ -294,7 +294,7 @@ private class FakeCredentialRepository(
 }
 
 private class FailingPersistentSettingsFactory : PersistentSettingsFactory {
-    override fun create(name: String): PersistentSettings = object : PersistentSettings {
+    override fun create(name: String): PersistentSettings = object : PersistentSettings() {
         override fun getStringOrNull(key: String): String? = null
         override fun putString(key: String, value: String) {
             if (key == "ollama_model") error("write failed")
@@ -314,7 +314,7 @@ private class ResetFailingPersistentSettingsFactory : PersistentSettingsFactory 
         "ollama_validated_model" to "mistral:latest",
     )
 
-    override fun create(name: String): PersistentSettings = object : PersistentSettings {
+    override fun create(name: String): PersistentSettings = object : PersistentSettings() {
         override fun getStringOrNull(key: String): String? = values[key]
         override fun putString(key: String, value: String) {
             values[key] = value

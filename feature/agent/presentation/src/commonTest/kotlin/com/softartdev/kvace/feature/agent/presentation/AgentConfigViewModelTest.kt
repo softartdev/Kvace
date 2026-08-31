@@ -26,6 +26,9 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.ZERO
+import kotlin.time.Duration.Companion.seconds
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class AgentConfigViewModelTest {
@@ -165,7 +168,7 @@ class AgentConfigViewModelTest {
         val repository = FakeAgentConfigurationRepository()
         val viewModel = createViewModel(
             repository = repository,
-            connectionTester = FakeConnectionTester(delayMillis = 1_000),
+            connectionTester = FakeConnectionTester(delay = 1.seconds),
         )
 
         viewModel.onAction(AgentConfigAction.OpenAiApiKeySubmitted("test-key"))
@@ -202,10 +205,10 @@ private class FakeCredentialRepository : ProviderCredentialRepository {
 }
 
 private class FakeConnectionTester(
-    private val delayMillis: Long = 0,
+    private val delay: Duration = ZERO,
 ) : AgentConnectionTester {
     override suspend fun testConnection(config: AgentProviderConfig): AgentConnectionTestResult {
-        if (delayMillis > 0) delay(delayMillis)
+        if (delay > ZERO) delay(delay)
         return AgentConnectionTestResult.Success
     }
     override suspend fun testBrowserEndpoint(config: AgentProviderConfig): AgentConnectionTestResult = AgentConnectionTestResult.Success
@@ -213,6 +216,7 @@ private class FakeConnectionTester(
 
 private class FakeAgentConfigurationRepository(
     private val delayedModel: String? = null,
+    private val updateDelay: Duration = 1.seconds,
     private val resetFailure: Boolean = false,
 ) : AgentConfigurationRepository {
     override val providers = MutableStateFlow(
@@ -242,7 +246,7 @@ private class FakeAgentConfigurationRepository(
     }
 
     override suspend fun updateProvider(config: AgentProviderConfig) {
-        if (config.modelName == delayedModel) delay(1_000)
+        if (config.modelName == delayedModel) delay(updateDelay)
         providers.value = providers.value.map { if (it.id == config.id) config else it }
         if (selectedProvider.value?.id == config.id) {
             selectedProvider.value = config

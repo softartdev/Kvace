@@ -100,7 +100,7 @@ sealed interface AgentExecutionError {
 }
 
 sealed class AgentRuntimeException(message: String) : RuntimeException(message) {
-    data object AgentNotConfigured : AgentRuntimeException("No agent provider is configured yet.")
+    class AgentNotConfigured : AgentRuntimeException("No agent provider is configured yet.")
 }
 
 interface AgentRuntime {

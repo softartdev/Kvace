@@ -1,11 +1,29 @@
 package com.softartdev.kvace.core.data.settings
 
-interface PersistentSettings {
-    fun getStringOrNull(key: String): String?
-    fun putString(key: String, value: String)
-    fun getBoolean(key: String, defaultValue: Boolean): Boolean
-    fun putBoolean(key: String, value: Boolean)
-    fun remove(key: String)
+import com.russhwolf.settings.Settings
+
+open class PersistentSettings internal constructor(
+    private val settings: Settings?,
+    private val values: MutableMap<String, String>,
+    private val keyPrefix: String,
+) {
+    constructor(settings: Settings, keyPrefix: String = "") : this(settings, mutableMapOf(), keyPrefix)
+    constructor() : this(null, mutableMapOf(), "")
+
+    private fun String.namespaced(): String = keyPrefix + this
+
+    open fun getStringOrNull(key: String): String? = settings?.getStringOrNull(key.namespaced()) ?: values[key]
+    open fun putString(key: String, value: String) {
+        settings?.putString(key.namespaced(), value) ?: values.set(key, value)
+    }
+    open fun getBoolean(key: String, defaultValue: Boolean): Boolean =
+        settings?.getBoolean(key.namespaced(), defaultValue) ?: values[key]?.toBooleanStrictOrNull() ?: defaultValue
+    open fun putBoolean(key: String, value: Boolean) {
+        settings?.putBoolean(key.namespaced(), value) ?: values.set(key, value.toString())
+    }
+    open fun remove(key: String) {
+        settings?.remove(key.namespaced()) ?: values.remove(key)
+    }
 }
 
 interface PersistentSettingsFactory {
@@ -13,29 +31,8 @@ interface PersistentSettingsFactory {
 }
 
 class InMemoryPersistentSettingsFactory : PersistentSettingsFactory {
-    private val settingsByName = mutableMapOf<String, InMemoryPersistentSettings>()
+    private val settingsByName = mutableMapOf<String, PersistentSettings>()
 
     override fun create(name: String): PersistentSettings =
-        settingsByName.getOrPut(name) { InMemoryPersistentSettings() }
-}
-
-private class InMemoryPersistentSettings : PersistentSettings {
-    private val values = mutableMapOf<String, String>()
-
-    override fun getStringOrNull(key: String): String? = values[key]
-
-    override fun putString(key: String, value: String) {
-        values[key] = value
-    }
-
-    override fun getBoolean(key: String, defaultValue: Boolean): Boolean =
-        values[key]?.toBooleanStrictOrNull() ?: defaultValue
-
-    override fun putBoolean(key: String, value: Boolean) {
-        values[key] = value.toString()
-    }
-
-    override fun remove(key: String) {
-        values.remove(key)
-    }
+        settingsByName.getOrPut(name) { PersistentSettings() }
 }
