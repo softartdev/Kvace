@@ -11,6 +11,10 @@ Ollama is the default selected provider. The app starts with:
 
 Users can edit the host, port, and model in Providers > Ollama and press the connection test button. A successful test stores the provider as configured.
 
+The provider detail can reset Ollama to the platform-default endpoint and `qwen3.5:0.8b`. Resetting clears the saved
+validation markers and requires the endpoint and model to be validated again, but it does not change the selected
+provider.
+
 The Providers screen can also load server models from Ollama `/api/tags`. If the currently stored model is not present on the server, Kvace selects the first returned model and persists that choice. Users can still type a model manually for advanced/local experimentation.
 
 ## Real Execution
@@ -64,6 +68,9 @@ stored API key against the selected model before the provider becomes executable
 Android Keystore encryption key, iOS uses Keychain, and Desktop prefers the system keychain before falling back to a
 master-password-encrypted local file. Web/Wasm keeps the key only in memory and requires the configured endpoint to
 allow browser CORS requests.
+
+Resetting OpenAI restores `https://api.openai.com` and `gpt-4o`, clears provider verification, and keeps both the
+selected provider and saved API key. API-key deletion remains a separate explicit action.
 
 Credential storage requirements:
 

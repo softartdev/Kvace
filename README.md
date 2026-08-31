@@ -217,7 +217,7 @@ Broad platform smoke check:
 - Keep all Compose resources in `:core:ui`. Import `com.softartdev.kvace.core.ui.resources.*` and call `stringResource(Res.string...)` or `painterResource(Res.drawable...)` directly.
 - Add previews for stateless screen overloads; use a preview parameter provider for larger sample states.
 - Android CLI screenshot previews live under `app/shared/src/androidMain/kotlin/com/softartdev/kvace/preview`. Preview functions there must call the original feature composables only; sample state belongs in adjacent `PreviewParameterProvider` files.
-- Agents must visually validate UI changes. Use Android CLI screenshot previews for isolated composables and Compose Hot Reload MCP for the live Desktop JVM app, its interactions, navigation, window layout, and cross-screen state. The full agent workflow is in [Testing](docs/testing.md#live-desktop-ui-validation-with-compose-hot-reload-mcp).
+- Agents must finish every task with both visual gates: Android CLI Compose Preview and Compose Hot Reload MCP. UI work checks the affected screen; other work uses the Workspace baseline smoke scenario. The full agent workflow is in [Testing](docs/testing.md#mandatory-visual-completion-gate).
 - Kermit log messages should not repeat the `Logger.withTag(...)` tag in message text.
 - Do not add the deprecated Material Icons dependency. Add Google Fonts Material Symbols as XML vectors under `:core:ui/src/commonMain/composeResources/drawable` and use them with direct `painterResource(Res.drawable...)`.
 

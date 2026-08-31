@@ -33,5 +33,9 @@ private class NamespacedPersistentSettings(
         settings.putBoolean(key.namespaced(), value)
     }
 
+    override fun remove(key: String) {
+        settings.remove(key.namespaced())
+    }
+
     private fun String.namespaced(): String = keyPrefix + this
 }

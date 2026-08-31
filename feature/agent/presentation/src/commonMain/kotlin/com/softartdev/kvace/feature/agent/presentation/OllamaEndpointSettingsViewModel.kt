@@ -15,6 +15,8 @@ import com.softartdev.kvace.feature.agent.domain.OllamaEndpointValidationResult
 import com.softartdev.kvace.feature.agent.domain.OllamaEndpointValidator
 import com.softartdev.kvace.feature.agent.domain.ValidatedOllamaEndpoint
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.launchIn
@@ -71,10 +73,18 @@ class OllamaEndpointSettingsViewModel(
             is OllamaEndpointSettingsAction.ModelSelected -> selectModel(action.modelName)
             OllamaEndpointSettingsAction.TestConnection -> testConnection()
             OllamaEndpointSettingsAction.LoadModels -> loadModels()
+            OllamaEndpointSettingsAction.ResetRequested -> uiState.update {
+                it.copy(isResetDialogVisible = true, resetStatus = ProviderResetStatus.Idle)
+            }
+            OllamaEndpointSettingsAction.ResetConfirmed -> resetProvider()
+            OllamaEndpointSettingsAction.ResetDismissed -> uiState.update {
+                it.copy(isResetDialogVisible = false)
+            }
         }
     }
 
     private fun updateEndpointDraft(host: String? = null, port: String? = null) {
+        if (uiState.value.resetStatus == ProviderResetStatus.Resetting) return
         endpointOperationJob?.cancel()
         catalogEndpoint = null
         uiState.update { state ->
@@ -187,6 +197,39 @@ class OllamaEndpointSettingsViewModel(
         }
     }
 
+    private fun resetProvider() {
+        endpointOperationJob?.cancel()
+        catalogEndpoint = null
+        uiState.update {
+            it.copy(
+                isResetDialogVisible = false,
+                resetStatus = ProviderResetStatus.Resetting,
+            )
+        }
+        endpointOperationJob = viewModelScope.launch(dispatchers.io) {
+            try {
+                repository.resetProvider(AgentProviderId.Ollama)
+                val provider = repository.providers.value.first { it.id == AgentProviderId.Ollama }
+                val endpoint = provider.endpoint?.let(endpointValidator::parse)
+                uiState.update {
+                    it.copy(
+                        hostInput = endpoint?.host.orEmpty(),
+                        portInput = endpoint?.port?.toString().orEmpty(),
+                        modelInput = provider.modelName,
+                        availableModels = emptyList(),
+                        connectionStatus = OllamaConnectionStatus.Idle,
+                        modelsStatus = OllamaModelsStatus.Idle,
+                        resetStatus = ProviderResetStatus.Idle,
+                    )
+                }
+            } catch (error: Throwable) {
+                currentCoroutineContext().ensureActive()
+                logger.e(error) { "Failed to reset Ollama provider" }
+                uiState.update { it.copy(resetStatus = ProviderResetStatus.Failure) }
+            }
+        }
+    }
+
     private fun buildPendingConfig(): AgentProviderConfig? {
         val endpoint = validatedEndpoint() ?: return null
         val config = ollamaProviderConfig ?: return null
@@ -211,5 +254,7 @@ class OllamaEndpointSettingsViewModel(
     }
 
     private val OllamaEndpointSettingsUiState.isBusy: Boolean
-        get() = connectionStatus == OllamaConnectionStatus.Testing || modelsStatus == OllamaModelsStatus.Loading
+        get() = connectionStatus == OllamaConnectionStatus.Testing ||
+            modelsStatus == OllamaModelsStatus.Loading ||
+            resetStatus == ProviderResetStatus.Resetting
 }

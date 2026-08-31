@@ -105,6 +105,14 @@
     <string name="agents_openai_status_failure">Provider verification failed</string>
     <string name="agents_openai_master_password_label">Credential storage password</string>
     <string name="agents_openai_unlock_storage">Unlock storage</string>
+    <string name="agents_reset_provider_settings">Reset provider settings</string>
+    <string name="agents_reset_confirmation_title">Reset %1$s settings?</string>
+    <string name="agents_reset_ollama_message">Restore the default Ollama host, port, and model? The provider will need to be validated again.</string>
+    <string name="agents_reset_openai_message">Restore the default OpenAI-compatible endpoint and model? The saved API key will be kept, but the provider will need to be verified again.</string>
+    <string name="agents_reset_confirm">Reset</string>
+    <string name="agents_reset_cancel">Cancel</string>
+    <string name="agents_resetting">Resetting provider settings...</string>
+    <string name="agents_reset_failed">Could not reset provider settings. Try again.</string>
 
     <string name="settings_title">Settings</string>
     <string name="settings_section_appearance">Appearance</string>

@@ -5,6 +5,7 @@ interface PersistentSettings {
     fun putString(key: String, value: String)
     fun getBoolean(key: String, defaultValue: Boolean): Boolean
     fun putBoolean(key: String, value: Boolean)
+    fun remove(key: String)
 }
 
 interface PersistentSettingsFactory {
@@ -32,5 +33,9 @@ private class InMemoryPersistentSettings : PersistentSettings {
 
     override fun putBoolean(key: String, value: Boolean) {
         values[key] = value.toString()
+    }
+
+    override fun remove(key: String) {
+        values.remove(key)
     }
 }

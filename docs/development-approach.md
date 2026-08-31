@@ -28,10 +28,11 @@ Android CLI screenshot rendering can only render previews from Android source se
 
 ## Agent-Driven Visual Feedback
 
-Agents must close the loop between a Compose edit and the rendered UI. Use Android CLI screenshot previews for focused,
-isolated Composable states. For live Desktop JVM behavior — navigation, interactions, window layout, remembered state,
-and cross-screen composition — use Compose Hot Reload MCP to reload the running app, inspect its semantic tree, and
-capture a screenshot. The MCP procedure and safety boundaries are documented in
+Agents must close every task with both Android CLI Compose Preview and Compose Hot Reload MCP validation, even when the
+task only changes non-UI code or documentation. UI work validates the affected screen and representative states;
+otherwise use the wide Workspace preview and initial Desktop Workspace as baseline smoke checks. Do not claim
+completion when either gate is unavailable or unsuccessful. Reload the Desktop app, inspect its semantic tree, and
+capture a screenshot. The full procedure and safety boundaries are documented in
 [Testing](testing.md#live-desktop-ui-validation-with-compose-hot-reload-mcp).
 
 ## Provider Rollout

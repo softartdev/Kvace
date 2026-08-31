@@ -131,6 +131,7 @@ interface AgentConfigurationRepository {
     val selectedProvider: StateFlow<AgentProviderConfig?>
     suspend fun selectProvider(id: AgentProviderId)
     suspend fun updateProvider(config: AgentProviderConfig)
+    suspend fun resetProvider(id: AgentProviderId)
 }
 
 interface ProviderCredentialRepository {

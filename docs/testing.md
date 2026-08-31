@@ -8,6 +8,19 @@
 - Android UI coverage for repeated top-level navigation, back behavior, and the typed theme dialog.
 - The live Ollama instrumentation test is opt-in and excluded from the deterministic suite.
 
+## Mandatory Visual Completion Gate
+
+Every task must finish with both visual checks, regardless of whether it changed UI, domain, data, build logic, or
+documentation:
+
+1. Render the affected screen and representative states with Android CLI Compose Preview.
+2. Reload and inspect the live Desktop application with Compose Hot Reload MCP, including its semantic tree and a
+   screenshot.
+
+When a task has no affected screen, use `ScreenshootWorkspaceWidePreview` and the initial Desktop Workspace as baseline
+smoke checks. A task is not complete when preview rendering fails, MCP is unavailable or disconnected, `lastError` is
+present, or any window reports a UI error. Source inspection and successful compilation do not replace either gate.
+
 ## Focused Layer Test Command
 
 ```bash
@@ -85,9 +98,10 @@ Providers wide/compact/OpenAI, and Settings Harness/Libraries/About.
 
 ## Live Desktop UI Validation with Compose Hot Reload MCP
 
-Use Compose Hot Reload MCP when a UI change needs verification in the running Desktop JVM application: navigation,
-window layout, remembered state, interaction, cross-screen behavior, or the final composed UI. It complements Android
-CLI screenshot previews, which remain the preferred focused check for an isolated Composable and its sample states.
+Use Compose Hot Reload MCP after every task. For UI work, inspect navigation, window layout, remembered state,
+interaction, cross-screen behavior, and the affected final composition as applicable. For work without an affected
+screen, perform the baseline Workspace smoke check. Hot Reload complements Android CLI screenshot previews and does not
+replace them.
 
 The `:app:desktopApp` module already applies the Compose Hot Reload plugin. The MCP server is experimental and is
 limited to the Desktop JVM application.

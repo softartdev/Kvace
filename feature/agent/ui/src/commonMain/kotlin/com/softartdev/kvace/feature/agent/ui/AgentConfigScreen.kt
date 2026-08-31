@@ -92,6 +92,9 @@ import com.softartdev.kvace.core.ui.resources.agents_openai_unlock_storage
 import com.softartdev.kvace.core.ui.resources.agents_openai_model_required
 import com.softartdev.kvace.core.ui.resources.agents_provider_placeholder_message
 import com.softartdev.kvace.core.ui.resources.agents_provider_placeholder_title
+import com.softartdev.kvace.core.ui.resources.agents_reset_failed
+import com.softartdev.kvace.core.ui.resources.agents_reset_provider_settings
+import com.softartdev.kvace.core.ui.resources.agents_resetting
 import com.softartdev.kvace.core.ui.resources.agents_selected_provider_content_description
 import com.softartdev.kvace.core.ui.resources.agents_title
 import com.softartdev.kvace.core.ui.resources.ic_arrow_back
@@ -111,6 +114,7 @@ import com.softartdev.kvace.feature.agent.presentation.OllamaEndpointSettingsVie
 import com.softartdev.kvace.feature.agent.presentation.OllamaModelsStatus
 import com.softartdev.kvace.feature.agent.presentation.OpenAiModelValidationError
 import com.softartdev.kvace.feature.agent.presentation.OpenAiConnectionStatus
+import com.softartdev.kvace.feature.agent.presentation.ProviderResetStatus
 import com.softartdev.kvace.feature.agent.domain.ProviderCredentialStatus
 import com.softartdev.theme.material3.PreferableMaterialTheme
 import kotlinx.coroutines.launch
@@ -197,6 +201,7 @@ fun AgentConfigScreen(
                 openAiConnectionStatus = state.openAiConnectionStatus,
                 openAiCredentialStatus = state.openAiCredentialStatus,
                 openAiModelValidationError = state.openAiModelValidationError,
+                openAiResetStatus = state.openAiResetStatus,
                 onAction = onAction,
                 onOllamaAction = onOllamaAction,
                 onBackClick = when {
@@ -210,6 +215,21 @@ fun AgentConfigScreen(
         },
         paneExpansionState = paneExpansionState,
     )
+
+    if (ollamaState.isResetDialogVisible) {
+        ProviderResetConfirmationDialog(
+            provider = AgentProviderId.Ollama,
+            onConfirm = { onOllamaAction(OllamaEndpointSettingsAction.ResetConfirmed) },
+            onDismiss = { onOllamaAction(OllamaEndpointSettingsAction.ResetDismissed) },
+        )
+    }
+    if (state.isOpenAiResetDialogVisible) {
+        ProviderResetConfirmationDialog(
+            provider = AgentProviderId.OpenAI,
+            onConfirm = { onAction(AgentConfigAction.OpenAiResetConfirmed) },
+            onDismiss = { onAction(AgentConfigAction.OpenAiResetDismissed) },
+        )
+    }
 }
 
 @Composable
@@ -256,6 +276,7 @@ private fun ProviderDetailPane(
     openAiConnectionStatus: OpenAiConnectionStatus,
     openAiCredentialStatus: ProviderCredentialStatus,
     openAiModelValidationError: OpenAiModelValidationError?,
+    openAiResetStatus: ProviderResetStatus,
     onAction: (AgentConfigAction) -> Unit,
     onOllamaAction: (OllamaEndpointSettingsAction) -> Unit,
     onBackClick: (() -> Unit)?,
@@ -309,6 +330,7 @@ private fun ProviderDetailPane(
                         connectionStatus = openAiConnectionStatus,
                         credentialStatus = openAiCredentialStatus,
                         validationError = openAiModelValidationError,
+                        resetStatus = openAiResetStatus,
                         onModelChanged = { modelName ->
                             onAction(AgentConfigAction.OpenAiModelChanged(modelName))
                         },
@@ -316,6 +338,7 @@ private fun ProviderDetailPane(
                         onApiKeySubmitted = { apiKey -> onAction(AgentConfigAction.OpenAiApiKeySubmitted(apiKey)) },
                         onDeleteKey = { onAction(AgentConfigAction.OpenAiCredentialDeleted) },
                         onStorageUnlock = { password -> onAction(AgentConfigAction.OpenAiStorageUnlocked(password)) },
+                        onReset = { onAction(AgentConfigAction.OpenAiResetRequested) },
                     )
                 }
             }
@@ -431,14 +454,17 @@ private fun OpenAiProviderDetail(
     connectionStatus: OpenAiConnectionStatus,
     credentialStatus: ProviderCredentialStatus,
     validationError: OpenAiModelValidationError?,
+    resetStatus: ProviderResetStatus,
     onModelChanged: (String) -> Unit,
     onEndpointChanged: (String) -> Unit,
     onApiKeySubmitted: (String) -> Unit,
     onDeleteKey: () -> Unit,
     onStorageUnlock: (String) -> Unit,
+    onReset: () -> Unit,
 ) {
     var apiKey: String by remember { androidx.compose.runtime.mutableStateOf("") }
     var masterPassword: String by remember { androidx.compose.runtime.mutableStateOf("") }
+    val isResetting = resetStatus == ProviderResetStatus.Resetting
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -451,6 +477,7 @@ private fun OpenAiProviderDetail(
             onValueChange = onEndpointChanged,
             label = { Text(stringResource(Res.string.agents_openai_endpoint_label)) },
             singleLine = true,
+            enabled = !isResetting,
         )
         OutlinedTextField(
             modifier = Modifier
@@ -472,6 +499,7 @@ private fun OpenAiProviderDetail(
             },
             isError = validationError != null,
             singleLine = true,
+            enabled = !isResetting,
         )
         Text(
             text = stringResource(Res.string.agents_openai_credentials_title),
@@ -486,13 +514,14 @@ private fun OpenAiProviderDetail(
                 label = { Text(stringResource(Res.string.agents_openai_master_password_label)) },
                 visualTransformation = PasswordVisualTransformation(),
                 singleLine = true,
+                enabled = !isResetting,
             )
             OutlinedButton(
                 onClick = {
                     onStorageUnlock(masterPassword)
                     masterPassword = ""
                 },
-                enabled = masterPassword.isNotBlank(),
+                enabled = masterPassword.isNotBlank() && !isResetting,
             ) {
                 Text(stringResource(Res.string.agents_openai_unlock_storage))
             }
@@ -504,17 +533,20 @@ private fun OpenAiProviderDetail(
             label = { Text(stringResource(Res.string.agents_openai_api_key_label)) },
             visualTransformation = PasswordVisualTransformation(),
             singleLine = true,
+            enabled = !isResetting,
         )
         Button(
             onClick = {
                 onApiKeySubmitted(apiKey)
                 apiKey = ""
             },
-            enabled = apiKey.isNotBlank() && connectionStatus !is OpenAiConnectionStatus.Verifying,
+            enabled = apiKey.isNotBlank() &&
+                connectionStatus !is OpenAiConnectionStatus.Verifying &&
+                !isResetting,
         ) {
             Text(stringResource(Res.string.agents_openai_save_verify))
         }
-        OutlinedButton(onClick = onDeleteKey) {
+        OutlinedButton(onClick = onDeleteKey, enabled = !isResetting) {
             Text(stringResource(Res.string.agents_openai_delete_key))
         }
         when (connectionStatus) {
@@ -525,6 +557,37 @@ private fun OpenAiProviderDetail(
         Text(
             text = stringResource(Res.string.agents_openai_credentials_message),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        ProviderResetControls(
+            status = resetStatus,
+            provider = AgentProviderId.OpenAI,
+            onReset = onReset,
+        )
+    }
+}
+
+@Composable
+private fun ProviderResetControls(
+    status: ProviderResetStatus,
+    provider: AgentProviderId,
+    onReset: () -> Unit,
+) {
+    OutlinedButton(
+        modifier = Modifier.testTag("provider_reset_button_${provider.name}"),
+        onClick = onReset,
+        enabled = status != ProviderResetStatus.Resetting,
+    ) {
+        Text(stringResource(Res.string.agents_reset_provider_settings))
+    }
+    when (status) {
+        ProviderResetStatus.Idle -> Unit
+        ProviderResetStatus.Resetting -> Text(
+            text = stringResource(Res.string.agents_resetting),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        ProviderResetStatus.Failure -> Text(
+            text = stringResource(Res.string.agents_reset_failed),
+            color = MaterialTheme.colorScheme.error,
         )
     }
 }
@@ -556,7 +619,8 @@ fun OllamaEndpointSettings(
 ) {
     val isTesting = state.connectionStatus == OllamaConnectionStatus.Testing
     val isLoadingModels = state.modelsStatus == OllamaModelsStatus.Loading
-    val isBusy = isTesting || isLoadingModels
+    val isResetting = state.resetStatus == ProviderResetStatus.Resetting
+    val isBusy = isTesting || isLoadingModels || isResetting
     val isHostInvalid = state.connectionStatus == OllamaConnectionStatus.InvalidHost
     val isPortInvalid = state.connectionStatus == OllamaConnectionStatus.InvalidPort
     val isModelSelectionRequired = state.modelsStatus == OllamaModelsStatus.SelectionRequired
@@ -710,6 +774,11 @@ fun OllamaEndpointSettings(
                 }
             }
         }
+        ProviderResetControls(
+            status = state.resetStatus,
+            provider = AgentProviderId.Ollama,
+            onReset = { onAction(OllamaEndpointSettingsAction.ResetRequested) },
+        )
     }
 }
 

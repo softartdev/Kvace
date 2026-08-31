@@ -11,6 +11,8 @@ import com.softartdev.kvace.feature.agent.domain.AgentProviderId
 import com.softartdev.kvace.feature.agent.domain.ProviderCredentialRepository
 import com.softartdev.kvace.feature.agent.domain.ProviderCredentialResult
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -33,6 +35,7 @@ class AgentConfigViewModel(
     private var isObservingProviders = false
     private var isOpenAiModelInputInitialized = false
     private var openAiModelUpdateJob: Job? = null
+    private var openAiOperationJob: Job? = null
 
     fun observeProviders() {
         if (isObservingProviders) return
@@ -81,6 +84,13 @@ class AgentConfigViewModel(
             AgentConfigAction.OpenAiCredentialDeleted -> deleteOpenAiKey()
             is AgentConfigAction.OpenAiStorageUnlocked -> unlockOpenAiStorage(action.masterPassword)
             AgentConfigAction.OpenAiLockedCredentialCleared -> clearLockedCredential()
+            AgentConfigAction.OpenAiResetRequested -> uiState.update {
+                it.copy(isOpenAiResetDialogVisible = true, openAiResetStatus = ProviderResetStatus.Idle)
+            }
+            AgentConfigAction.OpenAiResetConfirmed -> resetOpenAiProvider()
+            AgentConfigAction.OpenAiResetDismissed -> uiState.update {
+                it.copy(isOpenAiResetDialogVisible = false)
+            }
             is AgentConfigAction.ProviderSelected -> selectProvider(action.id)
         }
     }
@@ -119,11 +129,14 @@ class AgentConfigViewModel(
         }
     }
 
-    private fun saveAndVerifyOpenAiKey(apiKey: String) = viewModelScope.launch(dispatchers.io) {
-        uiState.update { it.copy(openAiConnectionStatus = OpenAiConnectionStatus.Verifying) }
-        when (credentialRepository.saveOpenAiApiKey(apiKey)) {
-            ProviderCredentialResult.Success -> verifyOpenAiProvider()
-            else -> uiState.update { it.copy(openAiConnectionStatus = OpenAiConnectionStatus.Failure(null)) }
+    private fun saveAndVerifyOpenAiKey(apiKey: String) {
+        openAiOperationJob?.cancel()
+        openAiOperationJob = viewModelScope.launch(dispatchers.io) {
+            uiState.update { it.copy(openAiConnectionStatus = OpenAiConnectionStatus.Verifying) }
+            when (credentialRepository.saveOpenAiApiKey(apiKey)) {
+                ProviderCredentialResult.Success -> verifyOpenAiProvider()
+                else -> uiState.update { it.copy(openAiConnectionStatus = OpenAiConnectionStatus.Failure(null)) }
+            }
         }
     }
 
@@ -144,9 +157,41 @@ class AgentConfigViewModel(
         uiState.update { it.copy(openAiCredentialStatus = credentialRepository.openAiStatus.value) }
     }
 
+    private fun resetOpenAiProvider() {
+        openAiModelUpdateJob?.cancel()
+        openAiOperationJob?.cancel()
+        uiState.update {
+            it.copy(
+                isOpenAiResetDialogVisible = false,
+                openAiResetStatus = ProviderResetStatus.Resetting,
+            )
+        }
+        openAiOperationJob = viewModelScope.launch(dispatchers.io) {
+            try {
+                repository.resetProvider(AgentProviderId.OpenAI)
+                val provider = repository.providers.value.first { it.id == AgentProviderId.OpenAI }
+                uiState.update {
+                    it.copy(
+                        openAiModelInput = provider.modelName,
+                        openAiEndpointInput = provider.endpoint.orEmpty(),
+                        openAiModelValidationError = null,
+                        openAiConnectionStatus = OpenAiConnectionStatus.Idle,
+                        openAiResetStatus = ProviderResetStatus.Idle,
+                    )
+                }
+            } catch (error: Throwable) {
+                currentCoroutineContext().ensureActive()
+                logger.e(error) { "Failed to reset OpenAI provider" }
+                uiState.update { it.copy(openAiResetStatus = ProviderResetStatus.Failure) }
+            }
+        }
+    }
+
     private suspend fun verifyOpenAiProvider() {
         val provider = repository.providers.value.firstOrNull { it.id == AgentProviderId.OpenAI } ?: return
-        when (val result = connectionTester.testConnection(provider)) {
+        val result = connectionTester.testConnection(provider)
+        currentCoroutineContext().ensureActive()
+        when (result) {
             AgentConnectionTestResult.Success -> {
                 repository.updateProvider(provider.copy(isConfigured = true))
                 uiState.update { it.copy(openAiConnectionStatus = OpenAiConnectionStatus.Success) }

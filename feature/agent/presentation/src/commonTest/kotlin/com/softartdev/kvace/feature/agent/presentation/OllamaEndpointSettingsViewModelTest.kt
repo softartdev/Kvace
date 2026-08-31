@@ -14,9 +14,11 @@ import com.softartdev.kvace.feature.agent.domain.ValidatedOllamaEndpoint
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.TestDispatcher
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
@@ -221,6 +223,73 @@ class OllamaEndpointSettingsViewModelTest {
         assertEquals(OllamaModelsStatus.Idle, viewModel.uiState.value.modelsStatus)
     }
 
+    @Test
+    fun resetCanBeRequestedAndDismissedWithoutPersistence() = runTest(dispatcher) {
+        val repository = FakeOllamaConfigurationRepository()
+        val viewModel = createViewModel(repository)
+
+        viewModel.onAction(OllamaEndpointSettingsAction.ResetRequested)
+        assertTrue(viewModel.uiState.value.isResetDialogVisible)
+
+        viewModel.onAction(OllamaEndpointSettingsAction.ResetDismissed)
+
+        assertFalse(viewModel.uiState.value.isResetDialogVisible)
+        assertEquals(0, repository.resetCallCount)
+    }
+
+    @Test
+    fun confirmedResetRestoresDefaultsAndClearsTransientState() = runTest(dispatcher) {
+        val repository = FakeOllamaConfigurationRepository()
+        val viewModel = createViewModel(repository)
+        viewModel.observeEndpoint()
+        viewModel.onAction(OllamaEndpointSettingsAction.LoadModels)
+        viewModel.onAction(OllamaEndpointSettingsAction.HostChanged("remote-host"))
+
+        viewModel.onAction(OllamaEndpointSettingsAction.ResetConfirmed)
+        advanceUntilIdle()
+
+        assertEquals("127.0.0.1", viewModel.uiState.value.hostInput)
+        assertEquals("11434", viewModel.uiState.value.portInput)
+        assertEquals(DEFAULT_MODEL, viewModel.uiState.value.modelInput)
+        assertEquals(emptyList(), viewModel.uiState.value.availableModels)
+        assertEquals(OllamaConnectionStatus.Idle, viewModel.uiState.value.connectionStatus)
+        assertEquals(OllamaModelsStatus.Idle, viewModel.uiState.value.modelsStatus)
+        assertEquals(ProviderResetStatus.Idle, viewModel.uiState.value.resetStatus)
+        assertFalse(repository.ollamaProvider().isConfigured)
+    }
+
+    @Test
+    fun failedResetSurfacesInlineFailure() = runTest(dispatcher) {
+        val repository = FakeOllamaConfigurationRepository(resetFailure = true)
+        val viewModel = createViewModel(repository)
+
+        viewModel.onAction(OllamaEndpointSettingsAction.ResetConfirmed)
+        advanceUntilIdle()
+
+        assertEquals(ProviderResetStatus.Failure, viewModel.uiState.value.resetStatus)
+    }
+
+    @Test
+    fun resetCancelsPendingModelLoad() = runTest(dispatcher) {
+        val repository = FakeOllamaConfigurationRepository()
+        val viewModel = createViewModel(
+            repository = repository,
+            modelCatalog = FakeAgentModelCatalog(
+                result = AgentModelListResult.Success(listOf(DEFAULT_MODEL)),
+                delayMillis = 1_000,
+            ),
+        )
+        viewModel.observeEndpoint()
+
+        viewModel.onAction(OllamaEndpointSettingsAction.LoadModels)
+        viewModel.onAction(OllamaEndpointSettingsAction.ResetConfirmed)
+        advanceUntilIdle()
+
+        assertFalse(repository.ollamaProvider().isConfigured)
+        assertEquals(emptyList(), viewModel.uiState.value.availableModels)
+        assertEquals(OllamaModelsStatus.Idle, viewModel.uiState.value.modelsStatus)
+    }
+
     private fun createViewModel(
         repository: FakeOllamaConfigurationRepository = FakeOllamaConfigurationRepository(),
         connectionTester: FakeAgentConnectionTester = FakeAgentConnectionTester(),
@@ -240,7 +309,9 @@ class OllamaEndpointSettingsViewModelTest {
     }
 }
 
-private class FakeOllamaConfigurationRepository : AgentConfigurationRepository {
+private class FakeOllamaConfigurationRepository(
+    private val resetFailure: Boolean = false,
+) : AgentConfigurationRepository {
     override val providers = MutableStateFlow(
         listOf(
             AgentProviderConfig(
@@ -253,6 +324,7 @@ private class FakeOllamaConfigurationRepository : AgentConfigurationRepository {
     )
     override val selectedProvider = MutableStateFlow<AgentProviderConfig?>(providers.value.first())
     var updateCount = 0
+    var resetCallCount = 0
 
     override suspend fun selectProvider(id: AgentProviderId) {
         selectedProvider.value = providers.value.firstOrNull { it.id == id }
@@ -262,6 +334,20 @@ private class FakeOllamaConfigurationRepository : AgentConfigurationRepository {
         updateCount++
         providers.value = providers.value.map { if (it.id == config.id) config else it }
         if (selectedProvider.value?.id == config.id) selectedProvider.value = config
+    }
+
+    override suspend fun resetProvider(id: AgentProviderId) {
+        resetCallCount++
+        if (resetFailure) error("reset failed")
+        if (id != AgentProviderId.Ollama) return
+        val reset = AgentProviderConfig(
+            id = AgentProviderId.Ollama,
+            modelName = "qwen3.5:0.8b",
+            endpoint = "http://127.0.0.1:11434",
+            isConfigured = false,
+        )
+        providers.value = listOf(reset)
+        selectedProvider.value = reset
     }
 
     fun ollamaProvider(): AgentProviderConfig = providers.value.first()
@@ -282,11 +368,13 @@ private class FakeAgentConnectionTester(
 
 private class FakeAgentModelCatalog(
     private val result: AgentModelListResult = AgentModelListResult.Success(emptyList()),
+    private val delayMillis: Long = 0,
 ) : AgentModelCatalog {
     var callCount = 0
 
     override suspend fun loadModels(config: AgentProviderConfig): AgentModelListResult {
         callCount++
+        if (delayMillis > 0) delay(delayMillis)
         return result
     }
 }

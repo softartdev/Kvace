@@ -174,14 +174,99 @@ class SettingsAgentConfigurationRepositoryTest {
         assertEquals(original, repository.providers.value.first { it.id == AgentProviderId.Ollama })
     }
 
+    @Test
+    fun resetsOllamaToPlatformDefaultsAndRemovesValidationMarkers() = runTest {
+        val settingsFactory = InMemoryPersistentSettingsFactory()
+        val repository = createRepository(settingsFactory)
+        repository.updateProvider(
+            repository.ollamaProvider().copy(
+                endpoint = "http://remote-host:12345",
+                modelName = "mistral:latest",
+                isConfigured = true,
+            )
+        )
+        repository.selectProvider(AgentProviderId.Ollama)
+
+        repository.resetProvider(AgentProviderId.Ollama)
+
+        val reset = repository.ollamaProvider()
+        assertEquals("http://127.0.0.1:11434", reset.endpoint)
+        assertEquals("qwen3.5:0.8b", reset.modelName)
+        assertFalse(reset.isConfigured)
+        assertEquals(AgentProviderId.Ollama, repository.selectedProvider.value?.id)
+        assertNull(settingsFactory.agentSettings().getStringOrNull("ollama_validated_endpoint"))
+        assertNull(settingsFactory.agentSettings().getStringOrNull("ollama_validated_model"))
+        assertEquals(reset, createRepository(settingsFactory).ollamaProvider())
+    }
+
+    @Test
+    fun resetsOpenAiWithoutDeletingCredentialOrChangingSelection() = runTest {
+        val settingsFactory = InMemoryPersistentSettingsFactory()
+        val credentialRepository = FakeCredentialRepository(ProviderCredentialStatus.Stored)
+        val repository = createRepository(settingsFactory, credentialRepository = credentialRepository)
+        val custom = repository.providers.value.first { it.id == AgentProviderId.OpenAI }.copy(
+            endpoint = "https://example.com/v1",
+            modelName = "custom-model",
+            isConfigured = true,
+        )
+        repository.updateProvider(custom)
+        repository.selectProvider(AgentProviderId.OpenAI)
+
+        repository.resetProvider(AgentProviderId.OpenAI)
+
+        val reset = repository.providers.value.first { it.id == AgentProviderId.OpenAI }
+        assertEquals("https://api.openai.com", reset.endpoint)
+        assertEquals("gpt-4o", reset.modelName)
+        assertFalse(reset.isConfigured)
+        assertEquals(reset, repository.selectedProvider.value)
+        assertEquals(0, credentialRepository.deleteCallCount)
+        assertNull(settingsFactory.agentSettings().getStringOrNull("openai_validated_endpoint"))
+        assertNull(settingsFactory.agentSettings().getStringOrNull("openai_validated_model"))
+        val restored = createRepository(
+            settingsFactory = settingsFactory,
+            credentialRepository = credentialRepository,
+        ).providers.value.first { it.id == AgentProviderId.OpenAI }
+        assertEquals(reset, restored)
+    }
+
+    @Test
+    fun resetOnDeviceIsNoOp() = runTest {
+        val repository = createRepository()
+        val originalProviders = repository.providers.value
+
+        repository.resetProvider(AgentProviderId.OnDevice)
+
+        assertEquals(originalProviders, repository.providers.value)
+    }
+
+    @Test
+    fun failedResetDoesNotPublishInMemoryState() = runTest {
+        val repository = SettingsAgentConfigurationRepository(
+            ollamaEndpointProvider = StaticOllamaEndpointProvider(LOOPBACK_HOST),
+            ollamaEndpointValidator = KtorOllamaEndpointValidator(),
+            onDeviceModelProvider = FakeOnDeviceModelProvider(),
+            credentialRepository = FakeCredentialRepository(),
+            openAiEndpointValidator = DefaultOpenAiEndpointValidator(),
+            settingsFactory = ResetFailingPersistentSettingsFactory(),
+        )
+        val original = repository.ollamaProvider()
+
+        assertFailsWith<IllegalStateException> {
+            repository.resetProvider(AgentProviderId.Ollama)
+        }
+
+        assertEquals(original, repository.ollamaProvider())
+    }
+
     private fun createRepository(
         settingsFactory: InMemoryPersistentSettingsFactory = InMemoryPersistentSettingsFactory(),
         onDeviceModelProvider: OnDeviceModelProvider = FakeOnDeviceModelProvider(),
+        credentialRepository: ProviderCredentialRepository = FakeCredentialRepository(),
     ) = SettingsAgentConfigurationRepository(
         ollamaEndpointProvider = StaticOllamaEndpointProvider(LOOPBACK_HOST),
         ollamaEndpointValidator = KtorOllamaEndpointValidator(),
         onDeviceModelProvider = onDeviceModelProvider,
-        credentialRepository = FakeCredentialRepository(),
+        credentialRepository = credentialRepository,
         openAiEndpointValidator = DefaultOpenAiEndpointValidator(),
         settingsFactory = settingsFactory,
     )
@@ -193,11 +278,17 @@ class SettingsAgentConfigurationRepositoryTest {
         providers.value.first { it.id == AgentProviderId.Ollama }
 }
 
-private class FakeCredentialRepository : ProviderCredentialRepository {
-    override val openAiStatus = MutableStateFlow(ProviderCredentialStatus.Absent)
+private class FakeCredentialRepository(
+    status: ProviderCredentialStatus = ProviderCredentialStatus.Absent,
+) : ProviderCredentialRepository {
+    override val openAiStatus = MutableStateFlow(status)
+    var deleteCallCount = 0
     override suspend fun readOpenAiApiKey(): String? = null
     override suspend fun saveOpenAiApiKey(apiKey: String): ProviderCredentialResult = ProviderCredentialResult.Success
-    override suspend fun deleteOpenAiApiKey(): ProviderCredentialResult = ProviderCredentialResult.Success
+    override suspend fun deleteOpenAiApiKey(): ProviderCredentialResult {
+        deleteCallCount++
+        return ProviderCredentialResult.Success
+    }
     override suspend fun unlockOpenAiApiKey(masterPassword: String): ProviderCredentialResult = ProviderCredentialResult.Success
     override suspend fun clearLockedOpenAiApiKey(): ProviderCredentialResult = ProviderCredentialResult.Success
 }
@@ -210,6 +301,32 @@ private class FailingPersistentSettingsFactory : PersistentSettingsFactory {
         }
         override fun getBoolean(key: String, defaultValue: Boolean): Boolean = defaultValue
         override fun putBoolean(key: String, value: Boolean) = Unit
+        override fun remove(key: String) = Unit
+    }
+}
+
+private class ResetFailingPersistentSettingsFactory : PersistentSettingsFactory {
+    private val values = mutableMapOf(
+        "ollama_endpoint" to "http://remote-host:12345",
+        "ollama_model" to "mistral:latest",
+        "ollama_configured" to "true",
+        "ollama_validated_endpoint" to "http://remote-host:12345",
+        "ollama_validated_model" to "mistral:latest",
+    )
+
+    override fun create(name: String): PersistentSettings = object : PersistentSettings {
+        override fun getStringOrNull(key: String): String? = values[key]
+        override fun putString(key: String, value: String) {
+            values[key] = value
+        }
+        override fun getBoolean(key: String, defaultValue: Boolean): Boolean =
+            values[key]?.toBooleanStrictOrNull() ?: defaultValue
+        override fun putBoolean(key: String, value: Boolean) {
+            values[key] = value.toString()
+        }
+        override fun remove(key: String) {
+            error("remove failed")
+        }
     }
 }
 

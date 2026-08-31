@@ -101,15 +101,19 @@ Each feature (`chat`, `agent`, `settings`) is split into four modules: `domain`,
 
 ## Visual UI Validation for Agents
 
-Do not infer the rendered UI from Compose source alone. Validate a UI change with the smallest suitable visual tool:
+Every completed task, including domain, data, build, and documentation-only work, must finish with both visual gates:
 
-- Use Android CLI screenshot previews for an isolated stateless Composable and its representative states. Render only
+- Use Android CLI screenshot previews for the affected screen and its representative states. Render only
   the Android-source-set preview functions under
   `app/shared/src/androidMain/kotlin/com/softartdev/kvace/preview`; they must delegate to the original feature
   Composables and use adjacent `PreviewParameterProvider` sample state.
-- Use Compose Hot Reload MCP for a live Desktop JVM application when a change depends on navigation, window size,
-  interactions, remembered state, cross-screen behavior, or the real composition. It complements Preview rendering;
-  it does not replace it.
+- Use Compose Hot Reload MCP for the live Desktop JVM application, including a reload, semantic-tree inspection, and
+  screenshot of the affected UI.
+
+For work without an affected screen, render `ScreenshootWorkspaceWidePreview` and inspect the initial Workspace screen
+in Desktop as baseline smoke checks. Do not claim completion if either preview rendering or MCP validation did not pass.
+An unavailable or disconnected MCP server, any `lastError`, or any window UI error is a blocker rather than permission
+to infer the rendered result from source or compilation.
 
 The desktop module already applies `org.jetbrains.compose.hot-reload`. Compose Hot Reload MCP is experimental and
 works with the Desktop JVM application, not Android, iOS, or Web/Wasm targets.

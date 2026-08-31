@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.TestDispatcher
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
@@ -23,6 +24,8 @@ import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class AgentConfigViewModelTest {
@@ -111,10 +114,76 @@ class AgentConfigViewModelTest {
         assertEquals("gpt-latest", repository.openAiProvider().modelName)
     }
 
-    private fun createViewModel(repository: FakeAgentConfigurationRepository) = AgentConfigViewModel(
+    @Test
+    fun openAiResetCanBeRequestedAndDismissedWithoutPersistence() = runTest(dispatcher) {
+        val repository = FakeAgentConfigurationRepository()
+        val viewModel = createViewModel(repository)
+
+        viewModel.onAction(AgentConfigAction.OpenAiResetRequested)
+        assertTrue(viewModel.uiState.value.isOpenAiResetDialogVisible)
+
+        viewModel.onAction(AgentConfigAction.OpenAiResetDismissed)
+
+        assertFalse(viewModel.uiState.value.isOpenAiResetDialogVisible)
+        assertEquals(0, repository.resetCallCount)
+    }
+
+    @Test
+    fun confirmedOpenAiResetRestoresInputsWithoutDeletingCredential() = runTest(dispatcher) {
+        val repository = FakeAgentConfigurationRepository()
+        val credentialRepository = FakeCredentialRepository()
+        val viewModel = createViewModel(repository, credentialRepository = credentialRepository)
+        viewModel.observeProviders()
+        viewModel.onAction(AgentConfigAction.OpenAiEndpointChanged("https://example.com/v1"))
+        viewModel.onAction(AgentConfigAction.OpenAiModelChanged("custom-model"))
+
+        viewModel.onAction(AgentConfigAction.OpenAiResetRequested)
+        viewModel.onAction(AgentConfigAction.OpenAiResetConfirmed)
+        advanceUntilIdle()
+
+        assertEquals("gpt-4o", viewModel.uiState.value.openAiModelInput)
+        assertEquals("https://api.openai.com", viewModel.uiState.value.openAiEndpointInput)
+        assertEquals(OpenAiConnectionStatus.Idle, viewModel.uiState.value.openAiConnectionStatus)
+        assertEquals(ProviderResetStatus.Idle, viewModel.uiState.value.openAiResetStatus)
+        assertFalse(repository.openAiProvider().isConfigured)
+        assertEquals(0, credentialRepository.deleteCallCount)
+    }
+
+    @Test
+    fun failedOpenAiResetSurfacesInlineFailure() = runTest(dispatcher) {
+        val repository = FakeAgentConfigurationRepository(resetFailure = true)
+        val viewModel = createViewModel(repository)
+
+        viewModel.onAction(AgentConfigAction.OpenAiResetConfirmed)
+        advanceUntilIdle()
+
+        assertEquals(ProviderResetStatus.Failure, viewModel.uiState.value.openAiResetStatus)
+    }
+
+    @Test
+    fun resetCancelsPendingOpenAiVerification() = runTest(dispatcher) {
+        val repository = FakeAgentConfigurationRepository()
+        val viewModel = createViewModel(
+            repository = repository,
+            connectionTester = FakeConnectionTester(delayMillis = 1_000),
+        )
+
+        viewModel.onAction(AgentConfigAction.OpenAiApiKeySubmitted("test-key"))
+        viewModel.onAction(AgentConfigAction.OpenAiResetConfirmed)
+        advanceUntilIdle()
+
+        assertFalse(repository.openAiProvider().isConfigured)
+        assertEquals(ProviderResetStatus.Idle, viewModel.uiState.value.openAiResetStatus)
+    }
+
+    private fun createViewModel(
+        repository: FakeAgentConfigurationRepository,
+        credentialRepository: FakeCredentialRepository = FakeCredentialRepository(),
+        connectionTester: FakeConnectionTester = FakeConnectionTester(),
+    ) = AgentConfigViewModel(
         repository = repository,
-        credentialRepository = FakeCredentialRepository(),
-        connectionTester = FakeConnectionTester(),
+        credentialRepository = credentialRepository,
+        connectionTester = connectionTester,
         dispatchers = TestCoroutineDispatchers(dispatcher),
     )
 }
@@ -123,18 +192,28 @@ private class FakeCredentialRepository : ProviderCredentialRepository {
     override val openAiStatus = MutableStateFlow(ProviderCredentialStatus.Absent)
     override suspend fun readOpenAiApiKey(): String? = null
     override suspend fun saveOpenAiApiKey(apiKey: String): ProviderCredentialResult = ProviderCredentialResult.Success
-    override suspend fun deleteOpenAiApiKey(): ProviderCredentialResult = ProviderCredentialResult.Success
+    var deleteCallCount = 0
+    override suspend fun deleteOpenAiApiKey(): ProviderCredentialResult {
+        deleteCallCount++
+        return ProviderCredentialResult.Success
+    }
     override suspend fun unlockOpenAiApiKey(masterPassword: String): ProviderCredentialResult = ProviderCredentialResult.Success
     override suspend fun clearLockedOpenAiApiKey(): ProviderCredentialResult = ProviderCredentialResult.Success
 }
 
-private class FakeConnectionTester : AgentConnectionTester {
-    override suspend fun testConnection(config: AgentProviderConfig): AgentConnectionTestResult = AgentConnectionTestResult.Success
+private class FakeConnectionTester(
+    private val delayMillis: Long = 0,
+) : AgentConnectionTester {
+    override suspend fun testConnection(config: AgentProviderConfig): AgentConnectionTestResult {
+        if (delayMillis > 0) delay(delayMillis)
+        return AgentConnectionTestResult.Success
+    }
     override suspend fun testBrowserEndpoint(config: AgentProviderConfig): AgentConnectionTestResult = AgentConnectionTestResult.Success
 }
 
 private class FakeAgentConfigurationRepository(
     private val delayedModel: String? = null,
+    private val resetFailure: Boolean = false,
 ) : AgentConfigurationRepository {
     override val providers = MutableStateFlow(
         listOf(
@@ -147,6 +226,7 @@ private class FakeAgentConfigurationRepository(
             AgentProviderConfig(
                 id = AgentProviderId.OpenAI,
                 modelName = "gpt-4o",
+                endpoint = "https://api.openai.com",
             ),
             AgentProviderConfig(
                 id = AgentProviderId.OnDevice,
@@ -167,6 +247,28 @@ private class FakeAgentConfigurationRepository(
         if (selectedProvider.value?.id == config.id) {
             selectedProvider.value = config
         }
+    }
+
+    var resetCallCount = 0
+
+    override suspend fun resetProvider(id: AgentProviderId) {
+        resetCallCount++
+        if (resetFailure) error("reset failed")
+        val reset = when (id) {
+            AgentProviderId.OpenAI -> AgentProviderConfig(
+                id = id,
+                modelName = "gpt-4o",
+                endpoint = "https://api.openai.com",
+            )
+            AgentProviderId.Ollama -> AgentProviderConfig(
+                id = id,
+                modelName = "qwen3.5:0.8b",
+                endpoint = "http://127.0.0.1:11434",
+            )
+            AgentProviderId.OnDevice -> return
+        }
+        providers.value = providers.value.map { if (it.id == id) reset else it }
+        if (selectedProvider.value?.id == id) selectedProvider.value = reset
     }
 
     fun openAiProvider(): AgentProviderConfig = providers.value.first { it.id == AgentProviderId.OpenAI }

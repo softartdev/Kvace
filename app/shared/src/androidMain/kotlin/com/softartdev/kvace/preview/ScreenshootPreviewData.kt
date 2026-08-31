@@ -8,7 +8,6 @@ import com.softartdev.kvace.feature.agent.presentation.AgentConfigUiState
 import com.softartdev.kvace.feature.agent.presentation.OllamaConnectionStatus
 import com.softartdev.kvace.feature.agent.presentation.OllamaEndpointSettingsUiState
 import com.softartdev.kvace.feature.agent.presentation.OllamaModelsStatus
-import com.softartdev.kvace.feature.agent.presentation.OpenAiModelValidationError
 import com.softartdev.kvace.feature.chat.domain.ChatMessage
 import com.softartdev.kvace.feature.chat.domain.ChatSummary
 import com.softartdev.kvace.feature.chat.domain.Conversation
@@ -249,8 +248,8 @@ private object ScreenshootPreviewSamples {
     val providersOpenAi = AgentConfigUiState(
         providers = providers(),
         selectedProviderId = AgentProviderId.OpenAI,
-        openAiModelInput = "",
-        openAiModelValidationError = OpenAiModelValidationError.Required,
+        openAiModelInput = "gpt-4o",
+        openAiEndpointInput = "https://api.openai.com",
     )
 
     val ollamaLoaded = OllamaEndpointSettingsUiState(
@@ -311,6 +310,7 @@ private object ScreenshootPreviewSamples {
         AgentProviderConfig(
             id = AgentProviderId.OpenAI,
             modelName = "gpt-4o",
+            endpoint = "https://api.openai.com",
             isConfigured = false,
         ),
     )

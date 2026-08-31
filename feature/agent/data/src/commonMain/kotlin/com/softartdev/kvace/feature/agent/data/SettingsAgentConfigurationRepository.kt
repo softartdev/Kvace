@@ -50,6 +50,32 @@ class SettingsAgentConfigurationRepository(
         }
     }
 
+    override suspend fun resetProvider(id: AgentProviderId) {
+        val resetConfig = when (id) {
+            AgentProviderId.Ollama -> AgentProviderConfig(
+                id = AgentProviderId.Ollama,
+                modelName = DEFAULT_OLLAMA_MODEL,
+                endpoint = ollamaEndpointProvider.defaultEndpoint(),
+                isConfigured = false,
+            )
+            AgentProviderId.OpenAI -> AgentProviderConfig(
+                id = AgentProviderId.OpenAI,
+                modelName = DEFAULT_OPENAI_MODEL,
+                endpoint = DEFAULT_OPENAI_ENDPOINT,
+                isConfigured = false,
+            )
+            AgentProviderId.OnDevice -> return
+        }
+
+        resetProviderSettings(resetConfig)
+        providers.value = providers.value.map { provider ->
+            if (provider.id == id) resetConfig else provider
+        }
+        if (selectedProvider.value.id == id) {
+            selectedProvider.value = resetConfig
+        }
+    }
+
     private fun createInitialProviders(): List<AgentProviderConfig> {
         val ollamaEndpoint = settings.getStringOrNull(KEY_OLLAMA_ENDPOINT) ?: ollamaEndpointProvider.defaultEndpoint()
         val ollamaModel = settings.getStringOrNull(KEY_OLLAMA_MODEL) ?: DEFAULT_OLLAMA_MODEL
@@ -118,6 +144,24 @@ class SettingsAgentConfigurationRepository(
                 settings.putString(KEY_OPENAI_VALIDATED_ENDPOINT, endpoint)
             }
             Unit
+        }
+        AgentProviderId.OnDevice -> Unit
+    }
+
+    private fun resetProviderSettings(config: AgentProviderConfig) = when (config.id) {
+        AgentProviderId.Ollama -> {
+            settings.putBoolean(KEY_OLLAMA_CONFIGURED, false)
+            settings.putString(KEY_OLLAMA_ENDPOINT, requireNotNull(config.endpoint))
+            settings.putString(KEY_OLLAMA_MODEL, config.modelName)
+            settings.remove(KEY_OLLAMA_VALIDATED_ENDPOINT)
+            settings.remove(KEY_OLLAMA_VALIDATED_MODEL)
+        }
+        AgentProviderId.OpenAI -> {
+            settings.putBoolean(KEY_OPENAI_CONFIGURED, false)
+            settings.putString(KEY_OPENAI_ENDPOINT, requireNotNull(config.endpoint))
+            settings.putString(KEY_OPENAI_MODEL, config.modelName)
+            settings.remove(KEY_OPENAI_VALIDATED_ENDPOINT)
+            settings.remove(KEY_OPENAI_VALIDATED_MODEL)
         }
         AgentProviderId.OnDevice -> Unit
     }

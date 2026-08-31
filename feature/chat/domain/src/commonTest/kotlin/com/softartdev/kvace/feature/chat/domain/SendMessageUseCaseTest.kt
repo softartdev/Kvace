@@ -401,4 +401,6 @@ private class FakeAgentConfigurationRepository(
             selectedProvider.value = config
         }
     }
+
+    override suspend fun resetProvider(id: AgentProviderId) = Unit
 }

@@ -7,6 +7,8 @@ data class OllamaEndpointSettingsUiState(
     val availableModels: List<String> = emptyList(),
     val connectionStatus: OllamaConnectionStatus = OllamaConnectionStatus.Idle,
     val modelsStatus: OllamaModelsStatus = OllamaModelsStatus.Idle,
+    val isResetDialogVisible: Boolean = false,
+    val resetStatus: ProviderResetStatus = ProviderResetStatus.Idle,
 )
 
 sealed interface OllamaEndpointSettingsAction {
@@ -15,6 +17,9 @@ sealed interface OllamaEndpointSettingsAction {
     data class ModelSelected(val modelName: String) : OllamaEndpointSettingsAction
     data object TestConnection : OllamaEndpointSettingsAction
     data object LoadModels : OllamaEndpointSettingsAction
+    data object ResetRequested : OllamaEndpointSettingsAction
+    data object ResetConfirmed : OllamaEndpointSettingsAction
+    data object ResetDismissed : OllamaEndpointSettingsAction
 }
 
 sealed interface OllamaConnectionStatus {
