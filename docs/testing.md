@@ -80,7 +80,7 @@ android studio render-compose-preview \
   ScreenshootSettingsLibrariesPreview
 ```
 
-Current screenshot preview entry points cover Workspace wide/compact/sending/placeholder/long-chat/rename/delete,
+Current screenshot preview entry points cover Workspace wide/compact/sending/error/placeholder/long-chat/rename/delete,
 Providers wide/compact/OpenAI, and Settings Harness/Libraries/About.
 
 ## Live Desktop UI Validation with Compose Hot Reload MCP

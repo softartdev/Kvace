@@ -69,10 +69,11 @@ Credential storage requirements:
 
 - Android: Keystore-backed encrypted storage.
 - iOS: Keychain.
-- Desktop JVM: a platform secure store or explicit user-approved alternative.
-- Web/Wasm: avoid storing provider API keys in browser-side local state for real hosted-provider execution.
+- Desktop JVM: system keychain with a master-password-encrypted AES-GCM fallback file; the derived key remains only in memory.
+- Web/Wasm: session-memory key after a successful endpoint CORS check; no browser Storage persistence.
 
 ## Browser Caveat
 
-Local Ollama from Web/Wasm may require Ollama CORS configuration. A passing Desktop or Android connection test does not
-guarantee browser execution access, because browser fetches enforce CORS even when native targets can connect.
+Local Ollama and OpenAI-compatible endpoints from Web/Wasm require browser CORS access. A passing Desktop or Android
+connection test does not guarantee browser execution access, because browser fetches enforce CORS even when native
+targets can connect.

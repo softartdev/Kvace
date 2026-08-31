@@ -55,6 +55,17 @@ fun ScreenshootWorkspaceSendingPreview(
 
 @Preview(widthDp = 920, heightDp = 720)
 @Composable
+fun ScreenshootWorkspaceErrorPreview(
+    @PreviewParameter(ScreenshootWorkspaceErrorPreviewProvider::class) state: ScreenshootWorkspacePreviewState,
+) = PreferableMaterialTheme {
+    ChatScreen(
+        state = state.chatState,
+        onAction = {},
+    )
+}
+
+@Preview(widthDp = 920, heightDp = 720)
+@Composable
 fun ScreenshootWorkspaceLongChatPreview(
     @PreviewParameter(ScreenshootWorkspaceLongChatPreviewProvider::class) state: ScreenshootWorkspacePreviewState,
 ) = PreferableMaterialTheme {

@@ -55,12 +55,13 @@ Domain modules stay free of Compose, Koog, platform APIs, and data implementatio
 
 - Adaptive navigation shell built with `NavigationSuiteScaffold`.
 - Adaptive Workspace screen with conversation history, master-detail layout, stop generation, selectable message text, and message copy/share/delete actions.
-- Providers hub with adaptive master-detail configuration for Ollama, On-device, and a guarded OpenAI placeholder.
+- Providers hub with adaptive master-detail configuration for Ollama, On-device, and OpenAI-compatible endpoints.
 - Ollama host, port, and model editing with a connection test button.
 - Ollama model discovery from the server through `/api/tags`, with selectable returned models.
 - Android emulator Ollama defaults resolve to `10.0.2.2:11434`; other targets default to `127.0.0.1:11434`.
 - Ollama is the default selected provider and starts configured with model `qwen3.5:0.8b`.
 - On-device provider support for Android API 26+ through ML Kit Prompt API/Gemini Nano and iOS 26+ through an Apple Foundation Models Swift bridge.
+- OpenAI-compatible streaming execution with configurable base URL/model, typed failures, and platform secure credential storage; Web/Wasm uses an in-memory session key behind a CORS gate.
 - Chat conversations, messages, and assistant generation metadata are persisted with SQLDelight on Android, iOS, and Desktop JVM; Web/Wasm keeps chat history for the current browser session.
 - Selected provider, Ollama endpoint fields, model names, harness prompt, and settings selection are persisted with Multiplatform Settings.
 - Settings screen with MaterialThemePrefs theme switching, Harness prompt editing, open-source Libraries, and About information.
@@ -86,9 +87,9 @@ Ollama configuration supports:
 - Android emulator localhost detection. Emulator builds default to `10.0.2.2:11434`; other targets default to `127.0.0.1:11434`.
 - Streaming chat execution through Koog on Android, iOS, and Desktop JVM. Web/Wasm calls Ollama `/api/chat` directly and reads the streaming NDJSON response when the Ollama server allows the request with CORS.
 
-OpenAI is present as a provider placeholder. Secure provider credentials means API tokens and other hosted-provider secrets that need platform secure storage, such as Android Keystore-backed storage, iOS Keychain, and a desktop secure store. Ollama does not need those credentials for local execution, but hosted providers should not be enabled until secret storage is designed and implemented.
+OpenAI uses `https://api.openai.com` by default and also accepts OpenAI-compatible base URLs. Saving verifies the API key and selected model before the provider becomes executable. Android uses Keystore-backed encryption, iOS uses Keychain, and Desktop prefers the system keychain with an AES-GCM fallback unlocked by an in-memory master password. Web/Wasm first checks browser CORS access and keeps the key only in memory for the current tab.
 
-On-device configuration has no endpoint form because execution is owned by the platform. Android keeps the app min SDK at `24`, but Gemini Nano execution is available only on Android 8.0/API 26 or newer and may trigger ML Kit's framework-managed model download flow before the first response. iOS uses a Swift `OnDevicePromptApi` implementation backed by `FoundationModels.LanguageModelSession` when the host runs on iOS 26 or newer. `iOSApp` registers that implementation with the shared Apple on-device provider before Compose starts. Desktop JVM and Web/Wasm list the provider as unavailable.
+On-device configuration has no endpoint form because execution is owned by the platform. Android keeps the app min SDK at `24`, but Gemini Nano execution is available only on Android 8.0/API 26 or newer and may trigger ML Kit's framework-managed model download flow before the first response. iOS uses a Swift `OnDevicePromptApi` implementation backed by `FoundationModels.LanguageModelSession` when the host runs on iOS 26 or newer. `iOSApp` registers that implementation with the shared Apple on-device provider before Compose starts. Eligible Apple Silicon macOS 26+ Desktop hosts use the packaged Foundation Models helper; unsupported Desktop hosts and Web/Wasm report the provider as unavailable.
 
 ## Harness
 

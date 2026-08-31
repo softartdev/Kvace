@@ -16,6 +16,8 @@ This roadmap starts from the current KMP + Compose architecture after enabling p
   `ProcessBuilder`; Android, iOS, and Web/Wasm return unsupported results until platform bridges exist.
 - On-device provider selection with Android ML Kit Prompt API, an iOS Swift bridge, and a macOS JVM Swift helper for
   Apple Foundation Models.
+- OpenAI and OpenAI-compatible execution with configurable endpoint/model, secure credentials on native targets,
+  session-only browser credentials, streaming responses, and typed failures.
 - Android emulator localhost handling through emulator detection, defaulting Ollama to `10.0.2.2:11434`.
 - Multiplatform Settings persistence for selected provider, provider endpoint/model fields, app settings selection, and Wasm browser storage.
 - Harness prompt persistence through Multiplatform Settings.
@@ -48,23 +50,23 @@ Validation gate:
 
 ## Phase 2: Provider Configuration Depth
 
-- Add provider editing for model names beyond the current defaults. Basic model editing and Ollama model loading are implemented.
+- [x] Add provider editing for model names beyond the current defaults. Ollama model loading and OpenAI-compatible model editing are implemented.
 - [x] Add provider-specific validation for model names and endpoints. Ollama endpoints are normalized and models must
-  come from the server catalog; OpenAI accepts any non-blank trimmed model ID while remaining unconfigured until
-  secure credentials are implemented.
+  come from the server catalog; OpenAI-compatible endpoints are normalized and require successful credential/model verification.
 - [x] Add secure API-key storage for OpenAI and OpenAI-compatible endpoints.
-- Keep secrets out of persisted common UI state; Web/Wasm API keys remain an opt-in in-memory CORS-gated experiment.
+- [x] Keep secrets out of persisted common UI state; Web/Wasm API keys remain an opt-in in-memory CORS-gated experiment.
 - Add import/export or reset behavior only after the persistence model is stable.
 
 ## Phase 3: Richer Agent Execution
 
 - Expand the current minimal single-turn Ollama flow.
-- Continue mapping domain-level provider configuration to Koog client/model configuration inside `:feature:agent:data`.
+- [x] Continue mapping domain-level provider configuration to Koog client/model configuration inside `:feature:agent:data`.
 - Keep Koog types out of domain, presentation, and UI modules.
-- Add the first constrained agent tool call path. `shell_command` is implemented for Desktop JVM with read-only
+- [x] Add the first constrained agent tool call path. `shell_command` is implemented for Desktop JVM with read-only
   allowlist and unsupported placeholders on other targets.
-- Stream or incrementally publish assistant output through domain events.
-- Surface typed user-facing errors for missing provider configuration, network failure, auth failure, and model failure.
+- [x] Stream or incrementally publish assistant output through domain events.
+- [x] Surface typed user-facing errors for missing provider configuration, credentials, locked storage, network/CORS,
+  authentication, unavailable model, and request failure. Compose UI localizes the error type through resources.
 
 ## Phase 4: Chat Workspace
 

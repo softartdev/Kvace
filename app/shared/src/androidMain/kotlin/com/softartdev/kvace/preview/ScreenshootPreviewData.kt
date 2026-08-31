@@ -1,6 +1,7 @@
 package com.softartdev.kvace.preview
 
 import androidx.compose.ui.tooling.preview.PreviewParameterProvider
+import com.softartdev.kvace.feature.agent.domain.AgentExecutionError
 import com.softartdev.kvace.feature.agent.domain.AgentProviderConfig
 import com.softartdev.kvace.feature.agent.domain.AgentProviderId
 import com.softartdev.kvace.feature.agent.presentation.AgentConfigUiState
@@ -49,6 +50,12 @@ class ScreenshootWorkspaceSendingPreviewProvider :
     PreviewParameterProvider<ScreenshootWorkspacePreviewState> {
     override val values: Sequence<ScreenshootWorkspacePreviewState> =
         sequenceOf(ScreenshootWorkspacePreviewState(ScreenshootPreviewSamples.workspaceSending))
+}
+
+class ScreenshootWorkspaceErrorPreviewProvider :
+    PreviewParameterProvider<ScreenshootWorkspacePreviewState> {
+    override val values: Sequence<ScreenshootWorkspacePreviewState> =
+        sequenceOf(ScreenshootWorkspacePreviewState(ScreenshootPreviewSamples.workspaceError))
 }
 
 class ScreenshootWorkspaceLongChatPreviewProvider :
@@ -180,6 +187,33 @@ private object ScreenshootPreviewSamples {
     val workspaceSending = workspaceSelected.copy(
         inputText = "Continue with the implementation details",
         isSending = true,
+    )
+
+    val workspaceError = workspaceSelected.copy(
+        chats = workspaceSelected.chats.map { chat ->
+            if (chat.id == 1L) {
+                chat.copy(
+                    lastMessagePreview = "",
+                    lastMessageError = AgentExecutionError.Authentication,
+                    messageCount = chat.messageCount + 1,
+                )
+            } else {
+                chat
+            }
+        },
+        selectedConversation = workspaceSelected.selectedConversation?.let { conversation ->
+            conversation.copy(
+                messages = conversation.messages + ChatMessage(
+                    id = 4L,
+                    author = MessageAuthor.Error,
+                    text = "",
+                    createdAtMillis = 4_000L,
+                    generatedByModelName = "gpt-4o",
+                    generatedAtMillis = 4_000L,
+                    error = AgentExecutionError.Authentication,
+                ),
+            )
+        },
     )
 
     val workspaceLongChat = workspaceSelected.copy(

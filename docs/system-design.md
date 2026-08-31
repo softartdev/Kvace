@@ -1,6 +1,6 @@
 # System Design
 
-Kvace is a local-first Kotlin Multiplatform agent workspace. The first product shape is a chat surface backed by configurable AI providers. The current working providers are local Ollama and platform on-device models where the host supports them; hosted providers are represented in the model but remain guarded until secure credential storage is implemented.
+Kvace is a local-first Kotlin Multiplatform agent workspace. The first product shape is a chat surface backed by configurable AI providers. The current working providers are local Ollama, platform on-device models where the host supports them, and OpenAI or an OpenAI-compatible endpoint configured with a user-owned API key.
 
 ## Runtime Shape
 
@@ -16,8 +16,8 @@ Kvace is a local-first Kotlin Multiplatform agent workspace. The first product s
 1. The selected provider and selected model are loaded once at the start of a send from `AgentConfigurationRepository`.
 2. Workspace sends user input and the selected conversation id through `MessageSender`.
 3. `SendMessageUseCase` loads the selected conversation, passes previous user/assistant messages as `AgentRequest.context`, appends the user message, and asks `AgentRuntime` to execute the prompt with the locked provider id.
-4. `KoogAgentRuntime` maps Ollama to Koog's hosted client path on Android, iOS, and Desktop JVM, maps On-device to a
-   custom Koog `LLMClient`, and uses a direct streaming Ollama `/api/chat` request on Web/Wasm.
+4. `KoogAgentRuntime` maps Ollama and OpenAI to Koog client paths on Android, iOS, and Desktop JVM, maps On-device to a
+   custom Koog `LLMClient`, and uses direct streaming HTTP requests for Ollama and OpenAI-compatible execution on Web/Wasm.
 5. Runtime events are appended to the selected conversation as chat messages. Assistant-side messages store the model label and generation timestamp known at send start.
 
 ## Agent Tools
@@ -55,6 +55,7 @@ Multiplatform Settings stores lightweight app and provider preferences:
 
 - selected provider
 - Ollama host, port, endpoint, and model
+- OpenAI-compatible endpoint and model
 - provider configured state
 - selected settings section
 - Harness enabled state and system prompt
@@ -76,7 +77,9 @@ SQLDelight stores chat conversations and messages:
 - Desktop JVM: file-backed SQLite database in the platform user data directory. On macOS this is `~/Library/Application Support/kvace`; Windows and Linux paths are resolved through `net.harawata:appdirs`.
 - Web/Wasm: SQLDelight web worker driver with session-only browser storage.
 
-Stored chat messages include author, text, creation/update timestamps, and nullable assistant generation metadata: `generatedByModelName` and `generatedAtMillis`.
+Stored chat messages include author, text, creation/update timestamps, nullable assistant generation metadata
+(`generatedByModelName` and `generatedAtMillis`), and a nullable typed agent-error discriminator. UI maps the domain
+error type to Compose string resources when rendering the message or chat-list preview.
 
 New chats start as `New chat`. The first non-blank user message automatically becomes the title, truncated to a short
 single-line preview, unless the user has manually renamed the chat. Users can rename chats and delete whole chats;
@@ -101,6 +104,12 @@ callbacks, while the screen function decides which detail content belongs to the
 
 ## Secure Credentials
 
-Secure provider credentials are required for hosted providers, not for local Ollama. Examples include OpenAI API keys, OAuth tokens, or provider-specific secret tokens. These should be stored in platform secure stores and should not be exposed through browser-side common code.
+Secure provider credentials are required for hosted providers, not for local Ollama. The credential repository exposes
+only status and credential operations; secrets do not enter persistent settings, logs, errors, or reusable UI state.
 
-OpenAI remains a placeholder until that secure storage design is implemented.
+- Android encrypts the OpenAI key with an Android Keystore-backed key.
+- iOS stores it in Keychain.
+- Desktop JVM prefers the system keychain. If it is unavailable, an AES-GCM fallback file is unlocked with a
+  master-password-derived key held only for the current session. Failed decryption never deletes the file implicitly.
+- Web/Wasm checks endpoint CORS without credentials, then keeps the API key only in memory for the current tab and
+  verifies access with the selected model before enabling execution.
