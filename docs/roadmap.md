@@ -57,6 +57,13 @@ Validation gate:
 - [x] Keep secrets out of persisted common UI state; Web/Wasm API keys remain an opt-in in-memory CORS-gated experiment.
 - [x] Add provider reset behavior after the persistence model is stable.
 
+## Kvace 1.0.0 Release & Distribution (before Phase 3)
+
+- [ ] Publish the first stable `1.0.0` release on Google Play Production, App Store, GitHub Releases, and GitHub Pages.
+- [ ] Produce deterministic marketing screenshots from Compose Preview through Android CLI and verify them with Compose Hot Reload MCP.
+- [ ] Publish signed/notarized macOS arm64/x64, Linux arm64/x64, and Windows x64 Desktop installers plus matching JARs.
+- [ ] Complete privacy, support, manual install/build, store metadata, and release documentation.
+
 ## Phase 3: Richer Agent Execution
 
 - Expand the current minimal single-turn Ollama flow.

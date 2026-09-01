@@ -32,6 +32,7 @@ import androidx.compose.material3.adaptive.ExperimentalMaterial3AdaptiveApi
 import androidx.compose.material3.adaptive.layout.ListDetailPaneScaffold
 import androidx.compose.material3.adaptive.layout.ListDetailPaneScaffoldRole
 import androidx.compose.material3.adaptive.layout.PaneExpansionState
+import androidx.compose.material3.adaptive.layout.ThreePaneScaffoldDestinationItem
 import androidx.compose.material3.adaptive.layout.rememberPaneExpansionState
 import androidx.compose.material3.adaptive.navigation.ThreePaneScaffoldNavigator
 import androidx.compose.material3.adaptive.navigation.rememberListDetailPaneScaffoldNavigator
@@ -162,20 +163,21 @@ fun AgentConfigScreen(
     ollamaState: OllamaEndpointSettingsUiState,
     onAction: (AgentConfigAction) -> Unit,
     onOllamaAction: (OllamaEndpointSettingsAction) -> Unit,
-    autoNavigateToSelectedProvider: Boolean = false,
+    showSelectedProviderInitially: Boolean = false,
 ) {
+    val selectedProviderId = state.selectedProviderId
+    val initialDestinationHistory = when {
+        showSelectedProviderInitially && selectedProviderId != null -> listOf(
+            ThreePaneScaffoldDestinationItem<AgentProviderId>(ListDetailPaneScaffoldRole.List),
+            ThreePaneScaffoldDestinationItem(ListDetailPaneScaffoldRole.Detail, selectedProviderId),
+        )
+        else -> listOf(ThreePaneScaffoldDestinationItem<AgentProviderId>(ListDetailPaneScaffoldRole.List))
+    }
     val navigator: ThreePaneScaffoldNavigator<AgentProviderId> =
-        rememberListDetailPaneScaffoldNavigator<AgentProviderId>()
+        rememberListDetailPaneScaffoldNavigator(initialDestinationHistory = initialDestinationHistory)
     val paneExpansionState: PaneExpansionState = rememberPaneExpansionState()
     val coroutineScope = rememberCoroutineScope()
     val canNavigateBack = navigator.canNavigateBack()
-
-    LaunchedEffect(autoNavigateToSelectedProvider, state.selectedProviderId) {
-        val selectedProviderId = state.selectedProviderId
-        if (autoNavigateToSelectedProvider && selectedProviderId != null) {
-            navigator.navigateTo(ListDetailPaneScaffoldRole.Detail, selectedProviderId)
-        }
-    }
 
     ListDetailPaneScaffold(
         modifier = modifier.fillMaxSize(),

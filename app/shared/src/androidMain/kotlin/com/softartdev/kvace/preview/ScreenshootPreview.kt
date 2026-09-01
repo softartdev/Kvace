@@ -38,7 +38,7 @@ fun ScreenshootWorkspaceCompactPreview(
     ChatScreen(
         state = state.chatState,
         onAction = {},
-        autoNavigateToSelectedChat = true,
+        showSelectedChatInitially = true,
     )
 }
 
@@ -120,7 +120,7 @@ fun ScreenshootProvidersCompactPreview(
         ollamaState = state.ollamaState,
         onAction = {},
         onOllamaAction = {},
-        autoNavigateToSelectedProvider = true,
+        showSelectedProviderInitially = true,
     )
 }
 

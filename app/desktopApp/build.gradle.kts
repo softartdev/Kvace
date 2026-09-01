@@ -1,4 +1,5 @@
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
+import java.util.Properties
 
 plugins {
     alias(libs.plugins.kotlinJvm)
@@ -9,14 +10,20 @@ plugins {
 }
 
 val appResourcesRoot = layout.buildDirectory.dir("generated/appResources")
+val releaseVersion = Properties().apply {
+    rootProject.file("version.properties").inputStream().use(::load)
+}
 
 compose.desktop {
     application {
         mainClass = "com.softartdev.kvace.MainKt"
+        buildTypes.release.proguard {
+            configurationFiles.from(project.file("proguard-rules.pro"))
+        }
         nativeDistributions {
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
             packageName = "com.softartdev.kvace"
-            packageVersion = "1.0.0"
+            packageVersion = releaseVersion.getProperty("VERSION_NAME")
             modules("java.sql")
             appResourcesRootDir.set(appResourcesRoot)
 

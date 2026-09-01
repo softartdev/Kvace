@@ -55,6 +55,7 @@ import androidx.compose.material3.adaptive.ExperimentalMaterial3AdaptiveApi
 import androidx.compose.material3.adaptive.layout.ListDetailPaneScaffold
 import androidx.compose.material3.adaptive.layout.ListDetailPaneScaffoldRole
 import androidx.compose.material3.adaptive.layout.PaneExpansionState
+import androidx.compose.material3.adaptive.layout.ThreePaneScaffoldDestinationItem
 import androidx.compose.material3.adaptive.layout.rememberPaneExpansionState
 import androidx.compose.material3.adaptive.navigation.ThreePaneScaffoldNavigator
 import androidx.compose.material3.adaptive.navigation.rememberListDetailPaneScaffoldNavigator
@@ -124,18 +125,25 @@ fun ChatScreen(
     modifier: Modifier = Modifier,
     state: ChatUiState,
     onAction: (ChatAction) -> Unit,
-    autoNavigateToSelectedChat: Boolean = false,
+    showSelectedChatInitially: Boolean = false,
 ) {
+    val selectedChatId = state.selectedConversation?.id
+    val initialDestinationHistory = when {
+        showSelectedChatInitially && selectedChatId != null -> listOf(
+            ThreePaneScaffoldDestinationItem<Long>(ListDetailPaneScaffoldRole.List),
+            ThreePaneScaffoldDestinationItem(ListDetailPaneScaffoldRole.Detail, selectedChatId),
+        )
+        else -> listOf(ThreePaneScaffoldDestinationItem<Long>(ListDetailPaneScaffoldRole.List))
+    }
     val navigator: ThreePaneScaffoldNavigator<Long> =
-        rememberListDetailPaneScaffoldNavigator<Long>()
+        rememberListDetailPaneScaffoldNavigator(initialDestinationHistory = initialDestinationHistory)
     val paneExpansionState: PaneExpansionState = rememberPaneExpansionState()
     val coroutineScope = rememberCoroutineScope()
     val canNavigateBack = navigator.canNavigateBack()
     var navigateToCreatedChat by remember { mutableStateOf(false) }
 
-    LaunchedEffect(autoNavigateToSelectedChat, navigateToCreatedChat, state.selectedConversation?.id) {
-        val selectedChatId = state.selectedConversation?.id
-        if ((autoNavigateToSelectedChat || navigateToCreatedChat) && selectedChatId != null) {
+    LaunchedEffect(navigateToCreatedChat, selectedChatId) {
+        if (navigateToCreatedChat && selectedChatId != null) {
             navigator.navigateTo(ListDetailPaneScaffoldRole.Detail, selectedChatId)
             navigateToCreatedChat = false
         }
@@ -960,7 +968,7 @@ fun ChatScreenCompactPreview() {
         ChatScreen(
             state = ChatScreenPreviewProvider.selectedState,
             onAction = {},
-            autoNavigateToSelectedChat = true,
+            showSelectedChatInitially = true,
         )
     }
 }

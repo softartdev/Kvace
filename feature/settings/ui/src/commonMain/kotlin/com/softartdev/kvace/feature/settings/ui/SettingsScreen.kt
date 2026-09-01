@@ -24,6 +24,7 @@ import androidx.compose.material3.adaptive.ExperimentalMaterial3AdaptiveApi
 import androidx.compose.material3.adaptive.layout.ListDetailPaneScaffold
 import androidx.compose.material3.adaptive.layout.ListDetailPaneScaffoldRole
 import androidx.compose.material3.adaptive.layout.PaneExpansionState
+import androidx.compose.material3.adaptive.layout.ThreePaneScaffoldDestinationItem
 import androidx.compose.material3.adaptive.layout.rememberPaneExpansionState
 import androidx.compose.material3.adaptive.navigation.ThreePaneScaffoldNavigator
 import androidx.compose.material3.adaptive.navigation.rememberListDetailPaneScaffoldNavigator
@@ -56,6 +57,10 @@ import com.softartdev.kvace.core.ui.resources.settings_section_harness
 import com.softartdev.kvace.core.ui.resources.settings_section_libraries
 import com.softartdev.kvace.core.ui.resources.settings_source_code
 import com.softartdev.kvace.core.ui.resources.settings_source_code_message
+import com.softartdev.kvace.core.ui.resources.settings_privacy_policy
+import com.softartdev.kvace.core.ui.resources.settings_privacy_policy_message
+import com.softartdev.kvace.core.ui.resources.settings_support
+import com.softartdev.kvace.core.ui.resources.settings_support_message
 import com.softartdev.kvace.core.ui.resources.settings_title
 import com.softartdev.kvace.feature.settings.domain.SettingsSection
 import com.softartdev.kvace.feature.settings.presentation.HarnessSettingsAction
@@ -98,9 +103,17 @@ fun SettingsScreen(
     onSectionSelected: (SettingsSection) -> Unit,
     onThemeClick: () -> Unit,
     onHarnessAction: (HarnessSettingsAction) -> Unit = {},
+    showSelectedSectionInitially: Boolean = false,
 ) {
+    val initialDestinationHistory = when {
+        showSelectedSectionInitially -> listOf(
+            ThreePaneScaffoldDestinationItem<SettingsSection>(ListDetailPaneScaffoldRole.List),
+            ThreePaneScaffoldDestinationItem(ListDetailPaneScaffoldRole.Detail, state.selectedSection),
+        )
+        else -> listOf(ThreePaneScaffoldDestinationItem<SettingsSection>(ListDetailPaneScaffoldRole.List))
+    }
     val navigator: ThreePaneScaffoldNavigator<SettingsSection> =
-        rememberListDetailPaneScaffoldNavigator<SettingsSection>()
+        rememberListDetailPaneScaffoldNavigator(initialDestinationHistory = initialDestinationHistory)
     val paneExpansionState: PaneExpansionState = rememberPaneExpansionState()
     val coroutineScope = rememberCoroutineScope()
     val canNavigateBack = navigator.canNavigateBack()
@@ -269,6 +282,29 @@ private fun AboutSettings() {
         headlineContent = { Text(stringResource(Res.string.settings_source_code)) },
         supportingContent = { Text(stringResource(Res.string.settings_source_code_message)) },
     )
+    ExternalLinkItem(
+        label = stringResource(Res.string.settings_privacy_policy),
+        description = stringResource(Res.string.settings_privacy_policy_message),
+        url = "$PROJECT_SITE_URL/privacy.html",
+    )
+    ExternalLinkItem(
+        label = stringResource(Res.string.settings_support),
+        description = stringResource(Res.string.settings_support_message),
+        url = "$PROJECT_SITE_URL/support.html",
+    )
+}
+
+@Composable
+private fun ExternalLinkItem(label: String, description: String, url: String) {
+    val uriHandler = LocalUriHandler.current
+    ListItem(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { uriHandler.openUri(url) },
+        leadingContent = { Icon(painter = painterResource(Res.drawable.ic_info), contentDescription = null) },
+        headlineContent = { Text(label) },
+        supportingContent = { Text(description) },
+    )
 }
 
 @Composable
@@ -319,6 +355,7 @@ private val SettingsSection.stringRes: StringResource
     }
 
 private const val PROJECT_GITHUB_URL = "https://github.com/softartdev/Kvace"
+private const val PROJECT_SITE_URL = "https://softartdev.github.io/Kvace"
 
 @Preview
 @Composable

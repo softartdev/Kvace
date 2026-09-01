@@ -36,43 +36,43 @@ data class ScreenshootSettingsPreviewState(
 class ScreenshootWorkspaceSelectedPreviewProvider :
     PreviewParameterProvider<ScreenshootWorkspacePreviewState> {
     override val values: Sequence<ScreenshootWorkspacePreviewState> =
-        sequenceOf(ScreenshootWorkspacePreviewState(ScreenshootPreviewSamples.workspaceSelected))
+        sequenceOf(ScreenshootWorkspacePreviewState(ScreenshootPreviewSamplesForStore.workspaceSelected))
 }
 
 class ScreenshootWorkspacePlaceholderPreviewProvider :
     PreviewParameterProvider<ScreenshootWorkspacePreviewState> {
     override val values: Sequence<ScreenshootWorkspacePreviewState> =
-        sequenceOf(ScreenshootWorkspacePreviewState(ScreenshootPreviewSamples.workspacePlaceholder))
+        sequenceOf(ScreenshootWorkspacePreviewState(ScreenshootPreviewSamplesForStore.workspacePlaceholder))
 }
 
 class ScreenshootWorkspaceSendingPreviewProvider :
     PreviewParameterProvider<ScreenshootWorkspacePreviewState> {
     override val values: Sequence<ScreenshootWorkspacePreviewState> =
-        sequenceOf(ScreenshootWorkspacePreviewState(ScreenshootPreviewSamples.workspaceSending))
+        sequenceOf(ScreenshootWorkspacePreviewState(ScreenshootPreviewSamplesForStore.workspaceSending))
 }
 
 class ScreenshootWorkspaceErrorPreviewProvider :
     PreviewParameterProvider<ScreenshootWorkspacePreviewState> {
     override val values: Sequence<ScreenshootWorkspacePreviewState> =
-        sequenceOf(ScreenshootWorkspacePreviewState(ScreenshootPreviewSamples.workspaceError))
+        sequenceOf(ScreenshootWorkspacePreviewState(ScreenshootPreviewSamplesForStore.workspaceError))
 }
 
 class ScreenshootWorkspaceLongChatPreviewProvider :
     PreviewParameterProvider<ScreenshootWorkspacePreviewState> {
     override val values: Sequence<ScreenshootWorkspacePreviewState> =
-        sequenceOf(ScreenshootWorkspacePreviewState(ScreenshootPreviewSamples.workspaceLongChat))
+        sequenceOf(ScreenshootWorkspacePreviewState(ScreenshootPreviewSamplesForStore.workspaceLongChat))
 }
 
 class ScreenshootWorkspaceRenameDialogPreviewProvider :
     PreviewParameterProvider<ScreenshootWorkspacePreviewState> {
     override val values: Sequence<ScreenshootWorkspacePreviewState> =
-        sequenceOf(ScreenshootWorkspacePreviewState(ScreenshootPreviewSamples.workspaceRenameDialog))
+        sequenceOf(ScreenshootWorkspacePreviewState(ScreenshootPreviewSamplesForStore.workspaceRenameDialog))
 }
 
 class ScreenshootWorkspaceDeleteDialogPreviewProvider :
     PreviewParameterProvider<ScreenshootWorkspacePreviewState> {
     override val values: Sequence<ScreenshootWorkspacePreviewState> =
-        sequenceOf(ScreenshootWorkspacePreviewState(ScreenshootPreviewSamples.workspaceDeleteDialog))
+        sequenceOf(ScreenshootWorkspacePreviewState(ScreenshootPreviewSamplesForStore.workspaceDeleteDialog))
 }
 
 class ScreenshootProvidersOllamaPreviewProvider :
@@ -80,8 +80,8 @@ class ScreenshootProvidersOllamaPreviewProvider :
     override val values: Sequence<ScreenshootProvidersPreviewState> =
         sequenceOf(
             ScreenshootProvidersPreviewState(
-                agentState = ScreenshootPreviewSamples.providersOllama,
-                ollamaState = ScreenshootPreviewSamples.ollamaLoaded,
+                agentState = ScreenshootPreviewSamplesForStore.providersOllama,
+                ollamaState = ScreenshootPreviewSamplesForStore.ollamaLoaded,
             ),
         )
 }
@@ -91,8 +91,8 @@ class ScreenshootProvidersOpenAiPreviewProvider :
     override val values: Sequence<ScreenshootProvidersPreviewState> =
         sequenceOf(
             ScreenshootProvidersPreviewState(
-                agentState = ScreenshootPreviewSamples.providersOpenAi,
-                ollamaState = ScreenshootPreviewSamples.ollamaLoaded,
+                agentState = ScreenshootPreviewSamplesForStore.providersOpenAi,
+                ollamaState = ScreenshootPreviewSamplesForStore.ollamaLoaded,
             ),
         )
 }
@@ -102,8 +102,8 @@ class ScreenshootProvidersOllamaErrorPreviewProvider :
     override val values: Sequence<ScreenshootProvidersPreviewState> =
         sequenceOf(
             ScreenshootProvidersPreviewState(
-                agentState = ScreenshootPreviewSamples.providersOllama,
-                ollamaState = ScreenshootPreviewSamples.ollamaSelectionRequired,
+                agentState = ScreenshootPreviewSamplesForStore.providersOllama,
+                ollamaState = ScreenshootPreviewSamplesForStore.ollamaSelectionRequired,
             ),
         )
 }
@@ -117,7 +117,7 @@ class ScreenshootSettingsHarnessPreviewProvider :
                     sections = SettingsSection.entries,
                     selectedSection = SettingsSection.Harness,
                 ),
-                harnessState = ScreenshootPreviewSamples.harnessEnabled,
+                harnessState = ScreenshootPreviewSamplesForStore.harnessEnabled,
             ),
         )
 }
@@ -148,7 +148,7 @@ class ScreenshootSettingsAboutPreviewProvider :
         )
 }
 
-private object ScreenshootPreviewSamples {
+internal object ScreenshootPreviewSamplesForStore {
     val workspaceSelected = ChatUiState(
         chats = chatSummaries(),
         selectedConversation = Conversation(
@@ -269,6 +269,11 @@ private object ScreenshootPreviewSamples {
     val harnessEnabled = HarnessSettingsUiState(
         enabled = true,
         systemPrompt = "You are Kvace, a concise AI assistant inside a multiplatform agent app.",
+    )
+
+    val settingsHarness = SettingsUiState(
+        sections = SettingsSection.entries,
+        selectedSection = SettingsSection.Harness,
     )
 
     private fun chatSummaries() = listOf(

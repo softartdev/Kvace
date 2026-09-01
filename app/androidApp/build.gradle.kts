@@ -1,4 +1,5 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import java.util.Properties
 
 plugins {
     alias(libs.plugins.androidApplication)
@@ -6,6 +7,10 @@ plugins {
     alias(libs.plugins.composeCompiler)
 }
 kotlin.compilerOptions.jvmTarget = JvmTarget.JVM_11
+
+val releaseVersion = Properties().apply {
+    rootProject.file("version.properties").inputStream().use(::load)
+}
 
 android {
     namespace = "com.softartdev.kvace"
@@ -15,8 +20,8 @@ android {
         applicationId = "com.softartdev.kvace"
         minSdk = libs.versions.android.minSdk.get().toInt()
         targetSdk = libs.versions.android.targetSdk.get().toInt()
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = releaseVersion.getProperty("VERSION_CODE").toInt()
+        versionName = releaseVersion.getProperty("VERSION_NAME")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
     packaging {

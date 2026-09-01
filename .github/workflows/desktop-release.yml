@@ -1,0 +1,156 @@
+name: Desktop Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing release tag to publish (for example, v1.0.0)
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  attestations: write
+  id-token: write
+
+env:
+  RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+
+jobs:
+  package:
+    environment: github-release-production
+    defaults:
+      run:
+        shell: bash
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-26
+            platform: macos
+            arch: arm64
+            extension: dmg
+          - runner: macos-26-intel
+            platform: macos
+            arch: x64
+            extension: dmg
+          - runner: ubuntu-24.04
+            platform: linux
+            arch: x64
+            extension: deb
+          - runner: ubuntu-24.04-arm
+            platform: linux
+            arch: arm64
+            extension: deb
+          - runner: windows-2025
+            platform: windows
+            arch: x64
+            extension: msi
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+          ref: ${{ env.RELEASE_TAG }}
+      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
+        with: { distribution: temurin, java-version: '21' }
+      - uses: gradle/actions/setup-gradle@0b6dd653ba04f4f93bf581ec31e66cbd7dcb644d # v4
+      - run: GITHUB_REF_TYPE=tag GITHUB_REF_NAME="$RELEASE_TAG" bash .github/scripts/validate_release_contract.sh
+      - name: Import macOS signing certificate
+        if: matrix.platform == 'macos'
+        env:
+          CERTIFICATE_BASE64: ${{ secrets.MACOS_CERTIFICATE_BASE64 }}
+          CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+        run: |
+          keychain="$RUNNER_TEMP/kvace.keychain-db"
+          echo "$CERTIFICATE_BASE64" | base64 --decode > "$RUNNER_TEMP/certificate.p12"
+          security create-keychain -p "$CERTIFICATE_PASSWORD" "$keychain"
+          security unlock-keychain -p "$CERTIFICATE_PASSWORD" "$keychain"
+          security import "$RUNNER_TEMP/certificate.p12" -k "$keychain" -P "$CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$CERTIFICATE_PASSWORD" "$keychain"
+          security list-keychains -d user -s "$keychain"
+          echo "MACOS_KEYCHAIN=$keychain" >> "$GITHUB_ENV"
+      - name: Build installer and JAR
+        env:
+          MACOS_SIGNING_IDENTITY: ${{ secrets.MACOS_SIGNING_IDENTITY }}
+        run: |
+          if [ "${{ matrix.platform }}" = macos ]; then
+            ./gradlew :app:desktopApp:packageReleaseDistributionForCurrentOS :app:desktopApp:packageReleaseUberJarForCurrentOS -Pcompose.desktop.mac.sign=true -Pcompose.desktop.mac.signing.identity="$MACOS_SIGNING_IDENTITY" -Pcompose.desktop.mac.signing.keychain="$MACOS_KEYCHAIN"
+          else
+            ./gradlew :app:desktopApp:packageReleaseDistributionForCurrentOS :app:desktopApp:packageReleaseUberJarForCurrentOS
+          fi
+      - name: Sign Windows MSI
+        if: matrix.platform == 'windows'
+        shell: pwsh
+        env:
+          WINDOWS_CERTIFICATE_BASE64: ${{ secrets.WINDOWS_CERTIFICATE_BASE64 }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+        run: |
+          $certificate = Join-Path $env:RUNNER_TEMP 'kvace-windows-signing.pfx'
+          [IO.File]::WriteAllBytes($certificate, [Convert]::FromBase64String($env:WINDOWS_CERTIFICATE_BASE64))
+          $msi = Get-ChildItem app/desktopApp/build/compose/binaries -Recurse -Filter *.msi | Select-Object -First 1
+          if (-not $msi) { throw 'Windows MSI was not produced' }
+          $kits = [Environment]::GetEnvironmentVariable('ProgramFiles(x86)')
+          $signtool = Get-ChildItem "$kits/Windows Kits/10/bin" -Recurse -Filter signtool.exe |
+            Where-Object FullName -Match '\\x64\\signtool.exe$' |
+            Sort-Object FullName |
+            Select-Object -Last 1
+          if (-not $signtool) { throw 'signtool.exe was not found' }
+          & $signtool.FullName sign /fd SHA256 /f $certificate /p $env:WINDOWS_CERTIFICATE_PASSWORD /tr https://timestamp.digicert.com /td SHA256 $msi.FullName
+          & $signtool.FullName verify /pa /v $msi.FullName
+      - name: Stage named assets
+        shell: bash
+        run: |
+          source version.properties
+          mkdir -p release-assets
+          installer_count="$(find app/desktopApp/build/compose/binaries -type f -name '*.${{ matrix.extension }}' | wc -l | tr -d ' ')"
+          jar_count="$(find app/desktopApp/build/compose/jars -maxdepth 1 -type f -name '*-release.jar' | wc -l | tr -d ' ')"
+          test "$installer_count" -eq 1 && test "$jar_count" -eq 1
+          installer="$(find app/desktopApp/build/compose/binaries -type f -name '*.${{ matrix.extension }}')"
+          jar="$(find app/desktopApp/build/compose/jars -maxdepth 1 -type f -name '*-release.jar')"
+          cp "$installer" "release-assets/Kvace-$VERSION_NAME-${{ matrix.platform }}-${{ matrix.arch }}.${{ matrix.extension }}"
+          cp "$jar" "release-assets/Kvace-$VERSION_NAME-${{ matrix.platform }}-${{ matrix.arch }}.jar"
+      - if: matrix.platform == 'macos'
+        name: Notarize macOS DMG
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+        run: |
+          dmg="$(find release-assets -name '*.dmg')"
+          xcrun notarytool submit "$dmg" --apple-id "$APPLE_ID" --team-id "$APPLE_TEAM_ID" --password "$APPLE_APP_PASSWORD" --wait
+          xcrun stapler staple "$dmg"
+          xcrun stapler validate "$dmg"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: desktop-${{ matrix.platform }}-${{ matrix.arch }}
+          path: release-assets
+
+  release:
+    needs: package
+    environment: github-release-production
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+          ref: ${{ env.RELEASE_TAG }}
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with: { path: release-assets, merge-multiple: true }
+      - run: cd release-assets && sha256sum * > SHA256SUMS
+      - uses: actions/attest-build-provenance@96b4a1ef7235a096b17240c259729fdd70c83d45 # v2
+        with: { subject-path: release-assets/* }
+      - name: Publish release assets
+        run: |
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" release-assets/* --clobber
+          else
+            gh release create "$RELEASE_TAG" release-assets/* --verify-tag --title "Kvace $RELEASE_TAG" --generate-notes
+          fi
+        env:
+          GH_TOKEN: ${{ github.token }}

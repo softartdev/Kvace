@@ -42,7 +42,7 @@ Ollama remains the default provider because it can run locally without API crede
 ## Platform Notes
 
 - Android emulator localhost must use `10.0.2.2`.
-- Android min SDK stays `24`. Koog `1.2.0` Android artifacts currently declare min SDK `35`, and ML Kit GenAI artifacts also need manifest override handling, so the Android app manifest temporarily uses `tools:overrideLibrary` while runtime calls remain guarded by platform checks.
+- Android min SDK is `26`. Koog `1.2.0` Android artifacts currently declare min SDK `35`, and ML Kit GenAI artifacts also need manifest override handling, so the Android app manifest temporarily uses `tools:overrideLibrary` while runtime calls remain guarded by platform checks.
 - Desktop and iOS simulator local Ollama normally use `127.0.0.1`.
 - Web/Wasm local Ollama execution uses a direct streaming `/api/chat` request instead of Koog. It may require Ollama
   CORS configuration; CORS failures should surface as normal request failures rather than being blocked before execution.

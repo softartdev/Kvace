@@ -123,6 +123,10 @@
     <string name="settings_about_message">Kvace is a Kotlin Multiplatform AI agent workspace.</string>
     <string name="settings_source_code">Source code</string>
     <string name="settings_source_code_message">Open the project on GitHub.</string>
+    <string name="settings_privacy_policy">Privacy policy</string>
+    <string name="settings_privacy_policy_message">Learn how Kvace handles your data.</string>
+    <string name="settings_support">Support</string>
+    <string name="settings_support_message">Get help, report an issue, or suggest an improvement.</string>
     <string name="settings_libraries_empty">No library metadata found.</string>
     <string name="harness_enabled_label">Use harness prompt</string>
     <string name="harness_system_prompt_label">Harness prompt</string>

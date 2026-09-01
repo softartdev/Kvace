@@ -1,0 +1,29 @@
+# target	order	scenario	composable	width	height	alt_text
+google-play/phone	01	workspace	StorePlayPhone01WorkspacePreview	1080	1920	Workspace with saved conversations and an active AI chat
+google-play/phone	02	execution	StorePlayPhone02ExecutionPreview	1080	1920	Agent execution with reasoning and cancellation
+google-play/phone	03	conversation	StorePlayPhone03ConversationPreview	1080	1920	Completed local-first AI conversation
+google-play/phone	04	ollama	StorePlayPhone04OllamaPreview	1080	1920	Local Ollama provider and model selection
+google-play/phone	05	openai	StorePlayPhone05OpenAiPreview	1080	1920	OpenAI-compatible provider configuration
+google-play/phone	06	settings	StorePlayPhone06SettingsPreview	1080	1920	Harness settings for AI conversations
+google-play/tablet	01	workspace	StorePlayTablet01WorkspacePreview	1920	1080	Workspace with saved conversations and an active AI chat
+google-play/tablet	02	execution	StorePlayTablet02ExecutionPreview	1920	1080	Agent execution with reasoning and cancellation
+google-play/tablet	03	conversation	StorePlayTablet03ConversationPreview	1920	1080	Completed local-first AI conversation
+google-play/tablet	04	ollama	StorePlayTablet04OllamaPreview	1920	1080	Local Ollama provider and model selection
+google-play/tablet	05	openai	StorePlayTablet05OpenAiPreview	1920	1080	OpenAI-compatible provider configuration
+google-play/tablet	06	settings	StorePlayTablet06SettingsPreview	1920	1080	Harness settings for AI conversations
+app-store/iphone	01	workspace	StoreAppStoreIPhone01WorkspacePreview	1320	2868	Workspace with saved conversations and an active AI chat
+app-store/iphone	02	execution	StoreAppStoreIPhone02ExecutionPreview	1320	2868	Agent execution with reasoning and cancellation
+app-store/iphone	03	conversation	StoreAppStoreIPhone03ConversationPreview	1320	2868	Completed local-first AI conversation
+app-store/iphone	04	ollama	StoreAppStoreIPhone04OllamaPreview	1320	2868	Local Ollama provider and model selection
+app-store/iphone	05	openai	StoreAppStoreIPhone05OpenAiPreview	1320	2868	OpenAI-compatible provider configuration
+app-store/iphone	06	settings	StoreAppStoreIPhone06SettingsPreview	1320	2868	Harness settings for AI conversations
+app-store/ipad	01	workspace	StoreAppStoreIPad01WorkspacePreview	2752	2064	Workspace with saved conversations and an active AI chat
+app-store/ipad	02	execution	StoreAppStoreIPad02ExecutionPreview	2752	2064	Agent execution with reasoning and cancellation
+app-store/ipad	03	conversation	StoreAppStoreIPad03ConversationPreview	2752	2064	Completed local-first AI conversation
+app-store/ipad	04	ollama	StoreAppStoreIPad04OllamaPreview	2752	2064	Local Ollama provider and model selection
+app-store/ipad	05	openai	StoreAppStoreIPad05OpenAiPreview	2752	2064	OpenAI-compatible provider configuration
+app-store/ipad	06	settings	StoreAppStoreIPad06SettingsPreview	2752	2064	Harness settings for AI conversations
+desktop	01	workspace	StoreDesktop01WorkspacePreview	2560	1600	Desktop workspace with conversation history
+desktop	02	execution	StoreDesktop02ExecutionPreview	2560	1600	Desktop agent execution with cancellation
+desktop	03	providers	StoreDesktop03ProvidersPreview	2560	1600	Desktop provider configuration
+desktop	04	settings	StoreDesktop04SettingsPreview	2560	1600	Desktop harness settings

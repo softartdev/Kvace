@@ -131,15 +131,21 @@ works with the Desktop JVM application, not Android, iOS, or Web/Wasm targets.
 
    MCP tools are discovered when a task starts. After adding or changing this configuration, start a new task in this
    repository before expecting the tools to appear.
-2. Start the live app with `./gradlew :app:desktopApp:hotRun` and keep that process running. The agent owns the MCP
-   server lifecycle; the server waits for the app and connects automatically.
-3. Call `status` and require `connected: true`. After a source edit, call `reload`, then check that reload completed,
-   there is no `lastError`, and no window is reporting a UI error.
-4. Call `list_windows`, then inspect the target with `get_semantic_tree` and `take_screenshot`. Use semantic node IDs
-   for `click`, `type_text`, and scrolling; after an interaction, inspect the changed state and take another
-   screenshot when visual output matters.
-5. Use `get_logs` or `get_ui_error` to diagnose a failed render. Do not claim visual verification succeeded if the
-   app is disconnected, reloading, or has a UI error.
+2. Start the live app through the agent host's approved, outside-restricted-sandbox execution path with the normal
+   Gradle daemon: `./gradlew :app:desktopApp:hotRun`. Keep that process running; the MCP server waits for it and
+   connects automatically. Do not set `SKIKO_RENDER_API` or another renderer override unless an explicit diagnostic
+   experiment requires it, and remove every override before the canonical gate.
+3. Run the canonical gate in this order: `status` (require `connected: true`) -> `reload` -> `list_windows` ->
+   `get_semantic_tree` and `get_ui_error` -> `take_screenshot`. Require a completed reload, no `lastError`, and no
+   window UI error.
+4. Visually inspect the screenshot. The gate passes only with a real, non-black image whose UI can be inspected;
+   semantics alone are insufficient. If MCP returns a black image, first repeat the gate from the known-working launch
+   context in step 2 and compare the MCP window state and semantics. Do not infer a macOS Screen Recording permission
+   problem solely from `CGPreflightScreenCaptureAccess` or a separate `screencapture` process; capture context is
+   process-specific.
+5. Use semantic node IDs for `click`, `type_text`, and scrolling. After an interaction, inspect the changed state and
+   take another screenshot when visual output matters. Use `get_logs` or `get_ui_error` to diagnose a failed render.
+   Do not claim visual verification succeeded if the app is disconnected, reloading, or has a UI error.
 
 MCP interaction can mutate application state. Restrict clicks, typing, and reset/restart actions to the requested UI
 scenario and safe test data; treat destructive, persistent, network, or provider actions as requiring the same care

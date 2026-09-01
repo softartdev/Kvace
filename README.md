@@ -1,7 +1,11 @@
-[![CI](https://github.com/softartdev/Kvace/actions/workflows/ci.yml/badge.svg)](https://github.com/softartdev/Kvace/actions/workflows/ci.yml)
-[![Build & Deploy CI/CD](https://github.com/softartdev/Kvace/actions/workflows/gh-pages.yml/badge.svg)](https://github.com/softartdev/Kvace/actions/workflows/gh-pages.yml)
-
 # Kvace
+
+[![CI](https://github.com/softartdev/Kvace/actions/workflows/ci.yml/badge.svg)](https://github.com/softartdev/Kvace/actions/workflows/ci.yml)
+[![Web](https://github.com/softartdev/Kvace/actions/workflows/web.yml/badge.svg)](https://github.com/softartdev/Kvace/actions/workflows/web.yml)
+[![Desktop Release](https://github.com/softartdev/Kvace/actions/workflows/desktop-release.yml/badge.svg)](https://github.com/softartdev/Kvace/actions/workflows/desktop-release.yml)
+[![Android Production](https://github.com/softartdev/Kvace/actions/workflows/android-production.yml/badge.svg)](https://github.com/softartdev/Kvace/actions/workflows/android-production.yml)
+[![iOS App Store](https://github.com/softartdev/Kvace/actions/workflows/ios-app-store.yml/badge.svg)](https://github.com/softartdev/Kvace/actions/workflows/ios-app-store.yml)
+[![License: GPL-3.0-only](https://img.shields.io/badge/license-GPL--3.0--only-blue.svg)](LICENSE)
 
 <p align="center">
   <img src="app/desktopApp/src/main/resources/icons/Kvace-iOS-Default-1024x1024@1x.png" width="120" alt="Kvace App Icon" />
@@ -13,10 +17,14 @@ See the [roadmap](docs/roadmap.md) for the planned build-out from the current sc
 
 ## Targets
 
-- Android
-- iOS
-- Desktop JVM
-- Web through Wasm JS
+| Target | Supported systems | Distribution |
+|---|---|---|
+| Android | Android 8.0 / API 26 or newer | Google Play Production AAB |
+| iOS | iOS 18.2 or newer | Apple App Store |
+| Desktop | macOS arm64/x64, Linux arm64/x64, Windows x64 | Native installer plus matching OS/ABI-specific JAR |
+| Web | Modern browsers with WebAssembly and required provider CORS access | GitHub Pages |
+
+Native Desktop installers bundle their runtime. Desktop JARs require Java 21 and must match the operating system and CPU architecture named in the artifact. Windows arm64 is not a release target.
 
 ## Project Structure
 
@@ -89,7 +97,9 @@ Ollama configuration supports:
 
 OpenAI uses `https://api.openai.com` by default and also accepts OpenAI-compatible base URLs. Saving verifies the API key and selected model before the provider becomes executable. Android uses Keystore-backed encryption, iOS uses Keychain, and Desktop prefers the system keychain with an AES-GCM fallback unlocked by an in-memory master password. Web/Wasm first checks browser CORS access and keeps the key only in memory for the current tab.
 
-On-device configuration has no endpoint form because execution is owned by the platform. Android keeps the app min SDK at `24`, but Gemini Nano execution is available only on Android 8.0/API 26 or newer and may trigger ML Kit's framework-managed model download flow before the first response. iOS uses a Swift `OnDevicePromptApi` implementation backed by `FoundationModels.LanguageModelSession` when the host runs on iOS 26 or newer. `iOSApp` registers that implementation with the shared Apple on-device provider before Compose starts. Eligible Apple Silicon macOS 26+ Desktop hosts use the packaged Foundation Models helper; unsupported Desktop hosts and Web/Wasm report the provider as unavailable.
+On-device configuration has no endpoint form because execution is owned by the platform. Android requires API 26 or newer; Gemini Nano availability still depends on the device and may trigger ML Kit's framework-managed model download flow before the first response. The iOS app runs on iOS 18.2 or newer, while its Apple Foundation Models provider requires iOS 26 or newer. `iOSApp` registers the Swift `OnDevicePromptApi` implementation with the shared provider before Compose starts. Eligible Apple Silicon macOS 26+ Desktop hosts use the packaged Foundation Models helper; unsupported Desktop hosts and Web/Wasm report the provider as unavailable.
+
+Ollama requires a user-managed server reachable from the selected platform. Hosted OpenAI-compatible providers require the user's own credentials and may be subject to provider charges or policies. Web credentials and chat history are session-only, and browser providers must explicitly allow CORS. The Desktop `shell_command` tool is read-only and allowlisted; it is unavailable on Android, iOS, and Web.
 
 ## Harness
 
@@ -102,7 +112,7 @@ Settings contains Harness controls for the default system prompt. When Harness i
 - Compose Hot Reload `1.2.0` for live Desktop JVM UI validation through MCP
 - Material 3 `1.11.0-alpha07`
 - Android Gradle Plugin `9.3.2`
-- Android min SDK `24`
+- Android min SDK `26`
 - Koin `4.2.2`
 - Koog `1.2.0`
 - AboutLibraries `15.1.1`
@@ -237,3 +247,13 @@ Refresh the bundled open-source libraries metadata after dependency changes:
 - [Testing](docs/testing.md)
 - [Snackbar guide](docs/SNACKBAR_GUIDE.md)
 - [Roadmap](docs/roadmap.md)
+- [Manual build and install](docs/MANUAL_BUILD_INSTALL.md)
+- [Release guide](docs/release/RELEASE_GUIDE.md)
+- [Release checklist](docs/release/RELEASE_CHECKLIST.md)
+- [Changelog](CHANGELOG.md)
+- [Privacy policy](https://softartdev.github.io/Kvace/privacy.html)
+- [Support](https://softartdev.github.io/Kvace/support.html)
+
+## License
+
+Kvace is licensed under the [GNU General Public License v3.0 only](LICENSE), SPDX identifier `GPL-3.0-only`.
