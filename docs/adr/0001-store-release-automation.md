@@ -8,7 +8,7 @@
 
 Keep Kvace's small, repository-owned release scripts. Android authenticates with Google Workload Identity Federation and calls the Android Publisher API directly. iOS builds and exports with Xcode, uploads with Apple's CLI, and manages metadata, screenshots, build linking, and review submission through the App Store Connect API. Do not add Fastlane or a Marketplace publication action.
 
-Every external GitHub Action remains pinned to a full 40-character object SHA with a readable release/major comment. GitHub says a full-length commit SHA is currently the only way to consume an Action as an immutable release in its [Secure use reference](https://docs.github.com/en/actions/reference/security/secure-use).
+GitHub Actions are referenced by readable major-version tags (for example, `actions/checkout@v4`) so Dependabot can track the selected release line and the workflow remains easy to maintain. Repository administrators should review action updates through Dependabot and normal pull-request review.
 
 ## Context
 

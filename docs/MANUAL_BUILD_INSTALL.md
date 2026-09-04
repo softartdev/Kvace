@@ -9,7 +9,6 @@ All commands run from the repository root unless a section says otherwise. Kvace
 - Android: Android Studio, an installed Android SDK, `adb`, and either an emulator or a USB-debug-enabled device.
 - iOS: macOS with Xcode, the `iosApp` shared scheme, and an iOS Simulator runtime. Physical-device and archive builds also need an Apple team and valid signing assets.
 - Web: no global Node installation is required; the Kotlin/Gradle toolchain provisions its own tooling.
-- Store screenshots: Android Studio, the [`android` CLI](https://developer.android.com/tools), ImageMagick's `magick`, and macOS `sips`.
 - Release verification: GitHub CLI `gh`; `shasum` or `sha256sum`; and PowerShell `Get-FileHash` on Windows.
 
 ## A. Run from source
@@ -236,24 +235,6 @@ Windows uses the same tasks through `.\gradlew.bat`. Native installers are under
 ```
 
 Windows: `.\gradlew.bat :app:webApp:wasmJsBrowserProductionWebpack`. Output: `app/webApp/build/dist/wasmJs/productionExecutable/`.
-
-### Store screenshots and package
-
-One command generates all 28 opaque RGB PNGs and fully validates their manifest paths, dimensions, alpha state, and content:
-
-```bash
-.github/scripts/generate_store_screenshots.sh
-```
-
-Output: `build/distribution/screenshots/`. Generated PNGs are gitignored; only preview code, sample data, metadata, alt text, and `distribution/screenshots/manifest.tsv` belong in Git.
-
-Package a deterministic release asset and external checksum separately:
-
-```bash
-.github/scripts/package_store_assets.sh
-```
-
-Outputs: `build/release/Kvace-1.0.0-store-assets.zip` and `build/release/Kvace-1.0.0-store-assets.zip.sha256`. The release operator flow is in [Release Guide](release/RELEASE_GUIDE.md).
 
 ### Tests and validation
 
