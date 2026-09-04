@@ -49,3 +49,15 @@ dependencies {
     implementation(libs.compose.uiToolingPreview)
     implementation(libs.kronos)
 }
+
+providers.gradleProperty("kvaceVisualHome").orNull?.let { visualHome ->
+    require(file(visualHome).isDirectory) {
+        "kvaceVisualHome must point to an existing isolated directory"
+    }
+    tasks.named<JavaExec>("hotRun") {
+        jvmArgs(
+            "-Duser.home=$visualHome",
+            "-Djava.util.prefs.userRoot=$visualHome/preferences",
+        )
+    }
+}

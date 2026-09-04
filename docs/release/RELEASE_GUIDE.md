@@ -1,108 +1,99 @@
 # Kvace 1.0.0 Release Guide
 
-This repository contains the release automation and metadata for 1.0.0. It does not create store records, credentials, approvals, tags, or public releases by itself. No publication should occur until the one-time bootstrap and the release checklist are complete.
+This repository contains credential-free validation and protected production automation. It does not create accounts, approve agreements, grant store access, create/push tags, or publish anything during ordinary builds. Complete [Store Bootstrap](STORE_BOOTSTRAP.md) and the [Release Checklist](RELEASE_CHECKLIST.md) first.
 
-## Release destinations
+## Release destinations and approval boundaries
 
-| Destination | Protected environment | Behavior |
+| Destination | Protected environment | Approved behavior |
 |---|---|---|
-| Google Play | `google-play-production` | Uploads the signed AAB directly to Production at 100% with status `completed`; no testing track or staged rollout |
-| Apple App Store | `app-store-production` | Uploads the IPA, attaches the processed build to version 1.0.0, submits directly to App Review, and releases automatically after approval; no TestFlight workflow |
-| GitHub Releases | `github-release-production` | Publishes five native installers and five matching OS/ABI JARs, checksums, and provenance attestations |
-| GitHub Pages | `github-pages` | Publishes the Web app, privacy policy, and support page from `main` |
+| Google Play | `google-play-production` | Signed AAB plus verified listing/screenshots directly to Production at 100%, status `completed` |
+| Apple App Store | `app-store-production` | IPA upload, verified metadata/screenshots, build association, direct App Review submission, automatic release after approval |
+| GitHub Releases | `github-release-production` | Five native installers, five OS/ABI JARs, checksums, and provenance uploaded to an existing draft |
+| GitHub Pages | `github-pages` | Web app, privacy page, and support page from `main` |
 
-Configure every environment with required reviewers and disable administrator bypass where organization policy permits. The production workflows also support manual dispatch, but require an existing release tag and check out that exact tag.
+The Google and Apple jobs do not use a testing track, staged rollout, TestFlight group, or Fastlane. Approving either job authorizes a production-side effect.
 
-## One-time Google Play bootstrap
+## 1. Prepare the release commit
 
-1. Create the Google Play app record for package `com.softartdev.kvace` and complete Play App Signing, category, content rating, target audience, Data Safety, privacy policy, pricing, countries, and Production-access requirements.
-2. Create a Google Cloud service account or workload identity with the minimum Play Console permissions needed to edit listings and publish Production releases.
-3. Add these GitHub environment secrets:
-
-   - `ANDROID_KEYSTORE_BASE64`
-   - `ANDROID_KEYSTORE_PASSWORD`
-   - `ANDROID_KEY_ALIAS`
-   - `ANDROID_KEY_PASSWORD`
-   - `GOOGLE_WORKLOAD_IDENTITY_PROVIDER`
-   - `GOOGLE_PLAY_SERVICE_ACCOUNT`
-
-The workflow uses the Android Publisher API and commits version code 1 directly to the `production` track with release status `completed`.
-
-## One-time App Store Connect bootstrap
-
-1. Create the App Store Connect app record for bundle ID `com.softartdev.kvace` and finish agreements, tax/banking, primary category, age rating, App Privacy, pricing, availability, and required compliance declarations.
-2. Create an Apple Distribution certificate and App Store provisioning profile. Create an App Store Connect API key with the minimum role that can upload builds, edit app metadata, manage screenshots, and submit for review.
-3. Add these GitHub environment secrets:
-
-   - `IOS_CERTIFICATE_BASE64`
-   - `IOS_CERTIFICATE_PASSWORD`
-   - `IOS_PROVISIONING_PROFILE_BASE64`
-   - `IOS_PROVISIONING_PROFILE_NAME`
-   - `APPLE_TEAM_ID`
-   - `APP_STORE_CONNECT_KEY_ID`
-   - `APP_STORE_CONNECT_ISSUER_ID`
-   - `APP_STORE_CONNECT_PRIVATE_KEY`
-   - `APP_REVIEW_CONTACT_FIRST_NAME`
-   - `APP_REVIEW_CONTACT_LAST_NAME`
-   - `APP_REVIEW_CONTACT_PHONE`
-   - `APP_REVIEW_CONTACT_EMAIL`
-
-The workflow uses Xcode export, Apple's upload CLI, and the official App Store Connect API. It creates or updates the 1.0.0 metadata and screenshots, waits for build 1 to finish processing, selects automatic release after approval, and submits the version to App Review. It does not create a TestFlight test or group.
-
-## One-time Desktop and Pages bootstrap
-
-Add the Desktop signing secrets to `github-release-production`:
-
-- `MACOS_CERTIFICATE_BASE64`
-- `MACOS_CERTIFICATE_PASSWORD`
-- `MACOS_SIGNING_IDENTITY`
-- `APPLE_ID`
-- `APPLE_TEAM_ID`
-- `APPLE_APP_PASSWORD`
-- `WINDOWS_CERTIFICATE_BASE64`
-- `WINDOWS_CERTIFICATE_PASSWORD`
-
-The Desktop matrix publishes macOS arm64/x64 DMGs, Linux arm64/x64 DEBs, and a Windows x64 MSI plus a matching JAR for each axis. Windows arm64 is intentionally unsupported. macOS artifacts are signed, notarized, and stapled; the Windows MSI is Authenticode-signed. `SHA256SUMS` and GitHub build-provenance attestations cover the published files.
-
-In repository Pages settings, choose GitHub Actions as the source and protect `github-pages` with the release reviewer. The Pages workflow deploys from `main`; do not add public store badges until their final URLs work.
-
-## Prepare and validate
-
-1. Generate and inspect the deterministic assets. Android Studio must be open and ready, Android CLI must be installed, and ImageMagick must provide `magick`.
+1. Confirm `version.properties` is `VERSION_NAME=1.0.0` and `VERSION_CODE=1`, the changelog heading is correct, and Android/iOS/Desktop version declarations derive from that file.
+2. Review `distribution/listing-en.md`, `distribution/privacy-data.md`, `distribution/metadata.env`, and every row/alt text in `distribution/screenshots/manifest.tsv` against the final binary.
+3. Generate and fully validate the 28 screenshots. Android Studio, Android CLI, ImageMagick, and `sips` are required:
 
    ```bash
    .github/scripts/generate_store_screenshots.sh
-   .github/scripts/validate_distribution.sh
    ```
 
-2. Complete the repository's Android CLI and Compose Hot Reload MCP visual gates.
-3. Run the release contract and platform builds.
+   Output is `build/distribution/screenshots/`; no generated PNG belongs in Git. Complete the repository's Android CLI preview and Compose Hot Reload MCP visual gates.
+
+4. Run the credential-free release checks:
 
    ```bash
    .github/scripts/validate_release_contract.sh
-   ./gradlew :app:androidApp:bundleRelease
-   ./gradlew :app:desktopApp:packageReleaseUberJarForCurrentOS \
-     :app:desktopApp:packageReleaseDistributionForCurrentOS
-   ./gradlew :app:webApp:wasmJsBrowserProductionWebpack
-   ./gradlew :app:shared:linkDebugFrameworkIosSimulatorArm64
+   .github/scripts/validate_distribution.sh
+   ./gradlew :core:domain:allTests :core:presentation:allTests \
+     :feature:agent:domain:allTests :feature:agent:data:allTests :feature:agent:presentation:allTests \
+     :feature:chat:domain:allTests :feature:chat:data:allTests :feature:chat:presentation:allTests \
+     :feature:settings:domain:allTests :feature:settings:data:allTests :feature:settings:presentation:allTests \
+     :app:shared:allTests
+   ./gradlew :app:androidApp:lint :app:androidApp:assembleDebug \
+     :app:desktopApp:test :app:webApp:wasmJsBrowserProductionWebpack \
+     :app:shared:linkDebugFrameworkIosSimulatorArm64
    ```
 
-4. Review `distribution/listing-en.md`, `distribution/privacy-data.md`, screenshots, and the release notes against the final binary behavior.
-5. Complete every item in `RELEASE_CHECKLIST.md` before creating the tag.
+5. Package the already-reviewed screenshots in a deterministic archive:
 
-## Publish after approval
+   ```bash
+   .github/scripts/package_store_assets.sh
+   (cd build/release && shasum -a 256 -c Kvace-1.0.0-store-assets.zip.sha256)
+   ```
 
-Create and push the signed `v1.0.0` tag only after the protected environments and store records are ready. Tag-triggered workflows stop at their environment approval gates. Approving a job is authorization for its production-side effect; Google Play and App Store jobs are not staging dry runs.
+   The archive contains the screenshots, exact manifest, metadata, release identity, and per-file `SHA256SUMS`. The external `.sha256` authenticates the archive bytes consumed by CI.
 
-If a tag-triggered run must be retried, manually dispatch the workflow with the existing tag name. Never point a production workflow at an untagged branch.
+## 2. Tag, create the draft, and upload store assets
 
-After publication, verify checksums and attestations, smoke-test every public artifact, record the final URLs, and only then add public store/download badges to the README.
+Only a maintainer performs this section. The tag push starts protected jobs; do not approve them yet.
 
-## Current limitations
+```bash
+git tag -s v1.0.0 -m 'Kvace 1.0.0'
+git push origin v1.0.0
+gh release create v1.0.0 \
+  --draft \
+  --verify-tag \
+  --title 'Kvace v1.0.0' \
+  --generate-notes
+gh release upload v1.0.0 \
+  build/release/Kvace-1.0.0-store-assets.zip \
+  build/release/Kvace-1.0.0-store-assets.zip.sha256
+```
 
-- Ollama requires a user-managed reachable server; hosted providers require the user's credentials and can incur provider charges.
-- Web provider access requires CORS. Web credentials and history are session-only.
-- Android on-device inference depends on compatible hardware and model availability.
-- Apple Foundation Models require iOS 26+ or Apple Silicon macOS 26+; the iOS app itself supports iOS 18.2+.
-- Desktop JARs require Java 21 and the matching OS/ABI. Native installers bundle their runtime.
-- Desktop `shell_command` execution is read-only and allowlisted. It is unavailable on Android, iOS, and Web.
+There is deliberately no `--clobber`. If the release or an asset already exists, stop and inspect it; do not replace evidence in place. A retry uses the existing signed tag and exact existing assets.
+
+Both mobile workflows call the same `.github/scripts/download_store_assets.sh`. It requires exact tag `v1.0.0`, an existing draft release, one correctly named ZIP and sidecar, matching external SHA-256, safe archive paths, matching committed manifest/metadata/release identity, valid internal checksums, exactly 28 expected files, exact dimensions, opaque PNG encoding, and unique nontrivial content. Any absence or mismatch fails before credentials are used.
+
+## 3. Approve protected workflows
+
+1. Review the tag, draft asset names/checksums, CI result, bootstrap evidence, and the checklist.
+2. Approve `github-release-production`. Its workflow uploads named installers/JARs, `SHA256SUMS`, and attestations to the existing draft without overwriting assets. It leaves the release in draft state.
+3. Approve `google-play-production` only when direct Production is intended. The workflow exchanges GitHub OIDC for a short-lived Google token through WIF and commits one Android Publisher edit.
+4. Approve `app-store-production` only when direct App Review submission is intended. The workflow uploads build 1 and submits version 1.0.0; it does not use TestFlight.
+5. If a tag-triggered job must be retried, dispatch the same workflow with input `v1.0.0`. Never point a production workflow at a branch or different tag.
+
+## 4. Publish the GitHub draft and verify public destinations
+
+After desktop uploads and both store submissions have the expected result, verify the draft inventory before making it public:
+
+```bash
+gh release view v1.0.0 --json isDraft,tagName,assets
+gh release download v1.0.0 --pattern 'SHA256SUMS' --pattern 'Kvace-1.0.0-*'
+shasum -a 256 -c SHA256SUMS
+gh attestation verify Kvace-1.0.0-macos-arm64.dmg --repo softartdev/Kvace
+gh release edit v1.0.0 --draft=false
+```
+
+Verify each of the ten Desktop artifacts on matching hardware. macOS DMGs must be Developer ID signed/notarized/stapled. The 1.0.0 Windows MSI is not Authenticode-signed and can trigger SmartScreen; SHA-256 and attestation verification are mandatory. Linux packages and JARs are checksum/attestation-covered but not platform-signed.
+
+Confirm Google Play, App Store Connect, GitHub Release, Pages, privacy, and support URLs. Add public store/download badges only after their final destinations work, and record final URLs in the private release issue.
+
+## Design record
+
+[ADR 0001](../adr/0001-store-release-automation.md) records why this project keeps official Android Publisher and App Store Connect API/CLI mechanisms instead of Fastlane or third-party Marketplace publication Actions.

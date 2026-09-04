@@ -6,6 +6,11 @@ cd "$repo_root"
 
 ipa_path="${1:?Path to the release IPA is required}"
 [[ -f "$ipa_path" ]] || { echo "IPA not found: $ipa_path" >&2; exit 1; }
+screenshots_root="${2:?Path to the verified screenshot root is required}"
+[[ -d "$screenshots_root/app-store/iphone" && -d "$screenshots_root/app-store/ipad" ]] || {
+  echo "Verified App Store screenshot directories were not found under $screenshots_root" >&2
+  exit 1
+}
 
 source version.properties
 source distribution/metadata.env
@@ -385,8 +390,8 @@ fi
 upsert_app_info_localization "$app_id"
 version_localization_id="$(upsert_version_localization "$version_id")"
 upsert_review_detail "$version_id"
-upload_screenshot_set "$version_localization_id" APP_IPHONE_67 distribution/screenshots/app-store/iphone
-upload_screenshot_set "$version_localization_id" APP_IPAD_PRO_3GEN_129 distribution/screenshots/app-store/ipad
+upload_screenshot_set "$version_localization_id" APP_IPHONE_67 "$screenshots_root/app-store/iphone"
+upload_screenshot_set "$version_localization_id" APP_IPAD_PRO_3GEN_129 "$screenshots_root/app-store/ipad"
 
 build_id="$(wait_for_processed_build "$app_id")"
 payload="$(jq -nc --arg id "$build_id" '{data:{type:"builds",id:$id}}')"

@@ -5,6 +5,11 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$repo_root"
 aab_path="${1:?Path to the release AAB is required}"
 [[ -f "$aab_path" ]] || { echo "AAB not found: $aab_path" >&2; exit 1; }
+screenshots_root="${2:?Path to the verified screenshot root is required}"
+[[ -d "$screenshots_root/google-play/phone" && -d "$screenshots_root/google-play/tablet" ]] || {
+  echo "Verified Google Play screenshot directories were not found under $screenshots_root" >&2
+  exit 1
+}
 : "${GOOGLE_PLAY_ACCESS_TOKEN:?GOOGLE_PLAY_ACCESS_TOKEN is required}"
 command -v curl >/dev/null
 command -v jq >/dev/null
@@ -60,9 +65,9 @@ upload_screenshots() {
       "https://androidpublisher.googleapis.com/upload/androidpublisher/v3/applications/$package_name/edits/$edit_id/listings/en-US/$type?uploadType=media" >/dev/null
   done
 }
-upload_screenshots phoneScreenshots distribution/screenshots/google-play/phone
-upload_screenshots sevenInchScreenshots distribution/screenshots/google-play/tablet
-upload_screenshots tenInchScreenshots distribution/screenshots/google-play/tablet
+upload_screenshots phoneScreenshots "$screenshots_root/google-play/phone"
+upload_screenshots sevenInchScreenshots "$screenshots_root/google-play/tablet"
+upload_screenshots tenInchScreenshots "$screenshots_root/google-play/tablet"
 
 notes="$(markdown_section "Release notes $VERSION_NAME")"
 release="$(jq -n --arg versionCode "$version_code" --arg notes "$notes" '{releases:[{versionCodes:[$versionCode],status:"completed",releaseNotes:[{language:"en-US",text:$notes}]}]}')"

@@ -60,7 +60,7 @@ Validation gate:
 ## Kvace 1.0.0 Release & Distribution (before Phase 3)
 
 - [ ] Publish the first stable `1.0.0` release on Google Play Production, App Store, GitHub Releases, and GitHub Pages.
-- [ ] Produce deterministic marketing screenshots from Compose Preview through Android CLI and verify them with Compose Hot Reload MCP.
+- [x] Produce deterministic marketing screenshots from Compose Preview through Android CLI, keep generated PNGs out of Git, and verify them with Compose Hot Reload MCP.
 - [ ] Publish signed/notarized macOS arm64/x64, Linux arm64/x64, and Windows x64 Desktop installers plus matching JARs.
 - [ ] Complete privacy, support, manual install/build, store metadata, and release documentation.
 

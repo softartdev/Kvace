@@ -26,6 +26,8 @@ Composables.
 
 Android CLI screenshot rendering can only render previews from Android source sets. Keep renderable screenshot previews in `app/shared/src/androidMain/kotlin/com/softartdev/kvace/preview/ScreenshootPreview.kt`, and keep larger sample state in adjacent `PreviewParameterProvider` classes. Those preview functions must call the original composables from feature UI modules; do not duplicate original screen, section, or row composables for screenshots.
 
+Store screenshot preview functions are declared in `StoreScreenshotPreview.kt` and mapped by `distribution/screenshots/manifest.tsv`. Generate their PNGs into gitignored `build/distribution/screenshots` with `.github/scripts/generate_store_screenshots.sh`; do not commit the rendered files.
+
 ## Agent-Driven Visual Feedback
 
 Agents must close every task with both Android CLI Compose Preview and Compose Hot Reload MCP validation, even when the

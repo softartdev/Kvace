@@ -13,6 +13,8 @@
 
 Kvace is a Kotlin Multiplatform AI agent workspace built with Compose Multiplatform. The first milestone is a shared chat-oriented UI for configuring and talking to AI agents. The agent layer is wrapped behind Kvace domain contracts so JetBrains Koog can be used without leaking Koog-specific types into presentation or UI modules.
 
+![Kvace Desktop workspace with conversation history, agent reasoning, Ollama model context, and tool validation progress](docs/assets/kvace-desktop.png)
+
 See the [roadmap](docs/roadmap.md) for the planned build-out from the current scaffold to richer agent execution, expanded chat workspace controls, and later terminal capabilities.
 
 ## Targets
@@ -25,6 +27,7 @@ See the [roadmap](docs/roadmap.md) for the planned build-out from the current sc
 | Web | Modern browsers with WebAssembly and required provider CORS access | GitHub Pages |
 
 Native Desktop installers bundle their runtime. Desktop JARs require Java 21 and must match the operating system and CPU architecture named in the artifact. Windows arm64 is not a release target.
+Kvace 1.0.0's Windows MSI is not Authenticode-signed, so SmartScreen can report an unknown publisher; verify its SHA-256 checksum and GitHub provenance attestation before installation.
 
 ## Project Structure
 
@@ -227,6 +230,7 @@ Broad platform smoke check:
 - Keep all Compose resources in `:core:ui`. Import `com.softartdev.kvace.core.ui.resources.*` and call `stringResource(Res.string...)` or `painterResource(Res.drawable...)` directly.
 - Add previews for stateless screen overloads; use a preview parameter provider for larger sample states.
 - Android CLI screenshot previews live under `app/shared/src/androidMain/kotlin/com/softartdev/kvace/preview`. Preview functions there must call the original feature composables only; sample state belongs in adjacent `PreviewParameterProvider` files.
+- Generated store PNGs live under gitignored `build/distribution/screenshots`; the tracked contract is `distribution/screenshots/manifest.tsv`. Package reviewed assets with `.github/scripts/package_store_assets.sh`.
 - Agents must finish every task with both visual gates: Android CLI Compose Preview and Compose Hot Reload MCP. UI work checks the affected screen; other work uses the Workspace baseline smoke scenario. The full agent workflow is in [Testing](docs/testing.md#mandatory-visual-completion-gate).
 - Kermit log messages should not repeat the `Logger.withTag(...)` tag in message text.
 - Do not add the deprecated Material Icons dependency. Add Google Fonts Material Symbols as XML vectors under `:core:ui/src/commonMain/composeResources/drawable` and use them with direct `painterResource(Res.drawable...)`.
@@ -250,6 +254,8 @@ Refresh the bundled open-source libraries metadata after dependency changes:
 - [Manual build and install](docs/MANUAL_BUILD_INSTALL.md)
 - [Release guide](docs/release/RELEASE_GUIDE.md)
 - [Release checklist](docs/release/RELEASE_CHECKLIST.md)
+- [Store bootstrap](docs/release/STORE_BOOTSTRAP.md)
+- [Store release automation ADR](docs/adr/0001-store-release-automation.md)
 - [Changelog](CHANGELOG.md)
 - [Privacy policy](https://softartdev.github.io/Kvace/privacy.html)
 - [Support](https://softartdev.github.io/Kvace/support.html)
